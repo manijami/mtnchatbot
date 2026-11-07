@@ -246,4 +246,23 @@ Start/stop: `docker compose up -d` / `docker compose down` (data persists in nam
 
 ## 8. Git state
 
-Filled in after the Phase 0 commit — see below.
+```
+$ git log --oneline -3
+0481405737 docs(mtn): project guide and Phase 0 baseline
+f4154b649 🦿 chore: Bump Agents SDK to 4.2.1 (#17664)
+e9be9f873 🎋 fix: Scope Document Replay Budgets to Each Message (#17687)
+
+$ git show --stat 0481405737
+ CLAUDE.md                   | 195 ++++
+ docs/mtn/HANDOVER_REPORT.md | 249 ++++
+ 2 files changed, 444 insertions(+)
+
+$ git status   (immediately after the commit)
+On branch mtn/employee-ai
+nothing to commit, working tree clean
+```
+
+- Commit `0481405737067148c6381bd1d4fd93784177c3a6` on `mtn/employee-ai`, **not pushed**.
+- `.env`, `librechat.yaml`, `docker-compose.override.yml` confirmed gitignored and not committed.
+- This §8 was written after the commit, so this report now has one uncommitted change; commit
+  it with the next MTN docs change (or amend before the first push).
