@@ -75,7 +75,9 @@ this report are **resolved**.
 The authoritative MTN project guide is the committed **`CLAUDE.md`** at the repo root (read
 `AGENTS.md` first — upstream contributor rules). It is no longer reproduced here to avoid drift.
 
-Current phase plan (from `CLAUDE.md`):
+Current phase plan (from `CLAUDE.md`). **Execution order: 0 (done) → 1 → 4 → 2 → 3 → 5 → 6**.
+Phase numbers are stable IDs. Phase 4 moved up because it is not blocked on MTN inputs and is the
+key demo value.
 
 | Phase | Description | Status |
 |---|---|---|
@@ -148,6 +150,7 @@ Created by copying `.env.example` and changing only:
 | `ALLOW_REGISTRATION` | `true` (dev). `ALLOW_EMAIL_LOGIN=true` unchanged. |
 | `GROQ_API_KEY` | Uncommented; **value entered by the user**. |
 | `ADMIN_PANEL_PORT` | `3001` — host port 3000 is used by a local Grafana. |
+| `SCHEDULES_SINGLE_PROCESS` | `true` (added after Phase 0 acceptance, local dev only). Asserts a single API replica so the schedules engine arms without Redis. API log now shows `[schedules] engine started`. Do **not** carry this to multi-replica deployments; use Redis streams there. |
 
 Everything else is the upstream `.env.example` default (e.g. `PORT=3080`, `SEARCH=false`, provider
 keys `user_provided`).
@@ -214,9 +217,10 @@ Start/stop: `docker compose up -d` / `docker compose down` (data persists in nam
   that is not document-capable needs the same `defaultLLMDeliveryPath` override.
 - **RAG/file search not validated** — needs an embeddings provider (OpenAI key or MTN-approved
   alternative). Decide alongside the primary-provider choice.
-- **Schedules engine not armed** (API log, error level): upstream refuses to start the scheduler
-  without Redis streams or `SCHEDULES_SINGLE_PROCESS=true`. Scheduled-task writes return 503. Left
-  at upstream default; revisit in Phase 3 (Redis) or set the flag for single-replica deployments.
+- **Schedules engine — resolved for local dev.** Upstream refuses to arm the scheduler without
+  Redis streams or `SCHEDULES_SINGLE_PROCESS=true`. Local `.env` now sets
+  `SCHEDULES_SINGLE_PROCESS=true` and the engine starts. Production (multi-replica) needs Redis
+  streams instead (Phase 3).
 - **Meilisearch index check timed out at boot** (API started before Meili was ready). Harmless with
   `SEARCH=false`; recheck when search is enabled.
 - **First registered user becomes `ADMIN`** (upstream behavior). In production, create the first

@@ -138,6 +138,10 @@ Follow `AGENTS.md` → "Testing" and "Verification". In short:
 
 ## Implementation plan (phased)
 
+> **Execution order (decided 2026-11-08):** Phase 0 (done) → **1 → 4 → 2 → 3 → 5 → 6**. Phase
+> numbers below are stable identifiers, not the run order. Phase 4 (Office document generation)
+> runs right after Phase 1 because it is not blocked on MTN inputs and is the key demo value.
+
 1. **Phase 0 — Baseline & environment.** Reproduce a clean local run (Docker stack + `.env` from
    `.env.example`), confirm version/commit, record upstream remote for future merges. No behavior
    change. *(this inspection step)*
@@ -181,11 +185,22 @@ Record every deviation from upstream here with rationale, so future upstream mer
   for admin-provisioned accounts, and SSO (OIDC + SAML) is the main way in.
 - _2026-11-08_ — **Plan:** added Phase 4 "Office document generation" (self-hosted Code
   Interpreter + template-driven MCP Office tools); later phases renumbered to 5 and 6.
+- _2026-11-08_ — **Execution order:** 1 → 4 → 2 → 3 → 5 → 6 (phase numbers unchanged). Rationale:
+  Office document generation does not depend on MTN inputs (brand assets, IdP, infrastructure) and
+  is the key demo value, so it moves ahead of Identity (2) and Infrastructure (3), which are blocked
+  on MTN.
+- _2026-11-08_ — **Phase 1 starts with placeholders:** logo, font files, and policy/help URLs use
+  clearly marked placeholders; do not wait for MTN brand assets. Swap in real assets when received.
+- _2026-11-08_ — **Local dev:** `SCHEDULES_SINGLE_PROCESS=true` in `.env` (single API replica, no
+  Redis) so the schedules engine arms. Not for multi-replica deployments.
 
 ## Security & secrets
 
 - **Never** place credentials, API keys, or secrets in this file, docs, or committed config.
   Secrets live in `.env` (git-ignored) and the deployment secret store.
+- **Do not use real MTN data with the Groq endpoint.** Groq is a third-party dev/test provider,
+  not MTN-approved. Use synthetic or public test data only. Real MTN data may only go to an
+  MTN-approved provider once one is confirmed.
 - **Never commit `.claude/helpers/` or `.claude/settings.local.json`.** They are per-machine
   Claude Code tooling (hook scripts, local permission allowlist), not project source.
 - Key secret env vars (names only): `CREDS_KEY`, `CREDS_IV`, `JWT_SECRET`, `JWT_REFRESH_SECRET`,
