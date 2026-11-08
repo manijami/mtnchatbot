@@ -68,7 +68,7 @@ def test_logo_on_every_slide_when_available(settings, store, tmp_path):
         (lambda s: s["slides"][2].update(chart=s["slides"][1]["chart"]), "a table or a chart, not both"),
         (lambda s: s["slides"][1]["chart"]["series"][0]["values"].pop(), "series[0] has 2 values"),
         (lambda s: s["slides"][3]["chart"]["series"].append({"name": "x", "values": [1, 2, 3, 4]}), "pie chart takes exactly one series"),
-        (lambda s: s["slides"][0].update(bullets=["x"] * 7), "slides[0].bullets"),
+        (lambda s: s["slides"][0].update(bullets=["x"] * 9), "slides[0].bullets"),
         (lambda s: s["slides"][0].update(bullets=[], key_message=None), "needs bullets, a table or a chart"),
         (lambda s: s.update(template="pitch_deck"), "template"),
     ],
@@ -151,3 +151,11 @@ def test_pie_labels_sit_outside_and_brand_blocks_have_no_shadow(client):
     key = _shape(prs, 1, "key_message")
     assert key.shadow.inherit is False
     assert key._element.find("{http://schemas.openxmlformats.org/presentationml/2006/main}style") is None
+
+
+def test_a_title_at_the_schema_limit_fits(client):
+    spec = deck_spec()
+    spec["slides"][1]["title"] = "Quarterly network modernisation results and the decisions we need from leadership today"
+    assert 85 <= len(spec["slides"][1]["title"]) <= 90
+    result = call(client, "create_powerpoint_presentation", spec)
+    assert result["isError"] is False, result

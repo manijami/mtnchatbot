@@ -138,3 +138,8 @@ async def pdf_text_lines(pdf: Path, first: int, last: int) -> int:
     if code != 0:
         return 0
     return sum(1 for line in output.decode(errors="replace").splitlines() if line.strip())
+
+
+async def pdf_text(pdf: Path) -> str:
+    code, output = await _run(["pdftotext", "-layout", str(pdf), "-"], timeout=30)
+    return output.decode(errors="replace") if code == 0 else ""

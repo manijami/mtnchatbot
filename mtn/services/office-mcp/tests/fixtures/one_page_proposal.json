@@ -1,0 +1,63 @@
+{
+  "sections": [
+    {
+      "heading": "Executive Summary",
+      "paragraphs": [
+        "Pilot a self-service password reset (SSPR) tool for 500 staff in Finance and Marketing to cut password-related service desk tickets by 60%, reduce resolution time from 15 min to <2 min, and improve satisfaction."
+      ]
+    },
+    {
+      "heading": "Objectives & Scope",
+      "bullets": [
+        "Enable secure self-service resets without service desk",
+        "Target: \u226560% ticket reduction, 90% adoption in 4 weeks",
+        "Validate AD and MFA integration",
+        "Scope: 500 staff, 4-week pilot from 2026-11-18, excludes privileged accounts"
+      ]
+    },
+    {
+      "heading": "Benefits & Budget",
+      "bullets": [
+        "~120 hrs/month saved in service desk effort",
+        "Faster resolution boosts productivity",
+        "Reduces risk from shared/written passwords",
+        "Supports hybrid work 24/7",
+        "Pilot cost: ZAR 45,000 (3-month licence) + 40 hrs IT time; full rollout est. ZAR 320k/yr for 5,000 users"
+      ]
+    },
+    {
+      "heading": "Timeline",
+      "table": {
+        "columns": ["Phase", "Dates", "Activities"],
+        "rows": [
+          ["Prepare", "Nov 8\u201317", "Configure, enroll, communicate"],
+          ["Pilot", "Nov 18\u2013Dec 15", "Live usage, weekly reviews"],
+          ["Evaluate", "Dec 16\u201322", "Metrics, feedback, go/no-go"]
+        ],
+        "caption": "Key milestones"
+      }
+    },
+    {
+      "heading": "Risks & Approval",
+      "bullets": [
+        "Low adoption \u2013 targeted comms, manager endorsement",
+        "MFA friction \u2013 guided sessions week 1",
+        "Integration issues \u2013 staging pre-test"
+      ],
+      "paragraphs": [
+        "Request approval to proceed from 2026-11-18 and ZAR 45,000 from IT innovation budget. Go/no-go for full rollout by 2026-12-22."
+      ]
+    }
+  ],
+  "cover_fields": [
+    { "label": "Owner", "value": "IT Service Management" },
+    { "label": "Date", "value": "2026-11-08" },
+    { "label": "Version", "value": "1.0" },
+    { "label": "Classification", "value": "Internal" }
+  ],
+  "template": "proposal",
+  "target_pages": 1,
+  "filename": "SSPR_Pilot_Proposal",
+  "subtitle": "Reduce IT support load and improve user experience",
+  "title": "Pilot Proposal: Self-Service Password Reset Tool for 500 Staff"
+}

@@ -40,7 +40,7 @@ def test_action_tracker_has_table_filters_freeze_validation_formatting_summary_a
     assert len(ws._charts) == 1
     version = _version(store, result)
     recalc = version.checks["recalc"]
-    assert recalc["errors"] == [] and recalc["formulas"] == 16 and recalc["computed"] >= 13
+    assert recalc["errors"] == [] and recalc["formulas"] == 16 and recalc["engine"] == "LibreOffice (render)"
     assert version.status == "complete"
 
 
@@ -53,7 +53,7 @@ def test_project_plan_formulas_totals_and_chart_recalculate_to_the_right_values(
     assert ws["F5"].value == 0.4 and ws["F5"].number_format == "0%"
     assert ws.parent.calculation.fullCalcOnLoad is True
     assert "formulas recalculated with no errors" in result["content"][0]["text"]
-    assert _version(store, result).checks["recalc"]["computed"] == 6
+    assert _version(store, result).checks["recalc"]["formulas"] == 6
 
 
 def test_formula_errors_block_delivery_and_name_the_cells(client, store):
@@ -117,3 +117,13 @@ def test_charts_use_the_mtn_font_and_pie_points_use_mtn_colours(client):
 def test_number_columns_are_wide_enough_for_totals(client):
     ws = _workbook(call(client, "create_excel_workbook", plan_spec()))["Plan"]
     assert ws.column_dimensions["G"].width >= 15
+
+
+
+def test_a_text_cell_that_looks_like_an_error_does_not_fail_the_workbook(client, store):
+    """'#N/A' typed as text trips the fast scan; the precise scan finds no formula errors."""
+    spec = plan_spec()
+    spec["sheets"][0]["rows"][0][1] = "#N/A"
+    result = call(client, "create_excel_workbook", spec)
+    assert result["isError"] is False, result
+    assert _version(store, result).checks["recalc"]["engine"] == "LibreOffice (cell scan)"

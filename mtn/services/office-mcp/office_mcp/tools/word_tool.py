@@ -9,19 +9,24 @@ from ..schemas import WORD_INPUT_SCHEMA, WordDocumentSpec, parse
 from . import Tool, ToolContext, ToolError, register
 
 DESCRIPTION = (
-    "Create an MTN-branded Word (.docx) document from structured content. Pick the template that "
-    "fits: proposal, meeting_minutes or incident_report (also for IT/operational processes). "
-    "Write the complete content in sections. With headings and a table, one A4 page holds about "
-    "250-300 words of body text: a two-page document is roughly 500-550 words in 6-7 sections. "
-    "When the user asks for a length, set target_pages. The finished file is attached to the chat "
-    "automatically; report the page count the tool returns."
+    "Create an MTN-branded Word (.docx) document. Templates: proposal, meeting_minutes, "
+    "incident_report (also for IT/operational processes). Give the complete content as sections; "
+    "every list field is a real JSON array, never a string containing JSON. With headings and a "
+    "table, one A4 page holds about 250-300 words: a two-page document is 6-7 sections and "
+    "500-550 words; a one-page document is 3-4 short sections and no more than ~200 words. "
+    "When the user asks for a length, set target_pages. The file is attached to the chat "
+    "automatically. Example: {\"template\": \"incident_report\", \"title\": \"VPN outage\", "
+    "\"target_pages\": 1, \"cover_fields\": [{\"label\": \"Severity\", \"value\": \"P2\"}], "
+    "\"sections\": [{\"heading\": \"Summary\", \"paragraphs\": [\"...\"]}, {\"heading\": "
+    "\"Timeline\", \"table\": {\"columns\": [\"Time\", \"Event\"], \"rows\": [[\"09:00\", "
+    "\"Alerts fired\"]]}}, {\"heading\": \"Actions\", \"numbered\": [\"...\"]}]}"
 )
 
 
 SPEC = WordDocumentSpec
 
 
-def make_job(spec: WordDocumentSpec, template, document_id: str | None = None) -> pipeline.Job:
+def make_job(spec: WordDocumentSpec, template, document_id: str | None = None, coercions: list | None = None) -> pipeline.Job:
     return pipeline.Job(
         kind="word",
         ext=".docx",
@@ -30,17 +35,20 @@ def make_job(spec: WordDocumentSpec, template, document_id: str | None = None) -
         build=word.build,
         reopen=word.reopen,
         document_id=document_id,
+        coercions=coercions,
+        compact_levels=2 if spec.target_pages else 0,
         summary=lambda s: f"{s['sections']} sections, {s['tables']} tables, ~{s['words']} words",
     )
 
 
 async def run(ctx: ToolContext, arguments: dict) -> list:
-    spec = parse(WordDocumentSpec, arguments)
+    notes: list[str] = []
+    spec = parse(WordDocumentSpec, arguments, notes, "word")
     try:
         template = templates.load(ctx.settings.templates_dir, "word", spec.template)
     except templates.TemplateError as exc:
         raise ToolError(f"Template problem: {exc}.") from None
-    return await pipeline.run(ctx, make_job(spec, template))
+    return await pipeline.run(ctx, make_job(spec, template, coercions=notes))
 
 
 TOOL = register(

@@ -15,14 +15,18 @@ from . import Tool, ToolContext, ToolError, excel_tool, powerpoint_tool, registe
 KINDS = {"word": word_tool, "powerpoint": powerpoint_tool, "excel": excel_tool}
 
 REVISE_DESCRIPTION = (
-    "Revise a Word, PowerPoint or Excel file this user generated earlier in the chat, creating the "
-    "next version (v2, v3, ...); earlier versions are kept unchanged. Pass document_id from the "
-    "create result and either changes (a list of {op: add|replace|remove, path, value} edits to "
-    "the stored content) or content (the complete new content, same fields as the create tool). "
-    "Paths: /sections/N for Word, /sheets/N for Excel. For PowerPoint use the slide number the "
-    "user sees, /slide/N (the title slide is slide 1): e.g. replace /slide/2/bullets or add "
-    "/slide/5/table; the create result lists every slide's number. Call get_generation_status if unsure of the "
-    "structure. Files uploaded by employees cannot be revised yet."
+    "Revise a Word, PowerPoint or Excel file this user generated earlier in the chat; creates the "
+    "next version and keeps earlier ones unchanged. Pass document_id and either changes (edits to "
+    "the stored content: op add|replace|remove, path, value) or content (complete new content). "
+    "Paths: /sections/N for Word, /sheets/N for Excel, and for PowerPoint the slide number the user "
+    "sees, /slide/N (title slide = 1; the create result lists every slide). A slide holds a table "
+    "OR a chart: to put a table on a chart slide, remove the chart in the same change list. "
+    "Example (shorten slide 2, risks table on slide 5): {\"document_id\": \"...\", \"changes\": "
+    "[{\"op\": \"replace\", \"path\": \"/slide/2/bullets\", \"value\": [\"Short point\"]}, "
+    "{\"op\": \"remove\", \"path\": \"/slide/5/chart\"}, {\"op\": \"add\", \"path\": "
+    "\"/slide/5/table\", \"value\": {\"columns\": [\"Risk\", \"Mitigation\"], \"rows\": [[\"...\", "
+    "\"...\"]]}}]}. Remove only what exists (get_generation_status shows the structure). Files "
+    "uploaded by employees cannot be revised yet."
 )
 REVISE_SCHEMA = {
     "type": "object",
@@ -74,12 +78,13 @@ async def revise(ctx: ToolContext, arguments: dict) -> list:
     else:
         new_spec = dict(arguments["content"])
     new_spec["template"] = doc.template  # a revision keeps the document's template
-    spec = parse(module.SPEC, new_spec)
+    notes: list[str] = []
+    spec = parse(module.SPEC, new_spec, notes, doc.kind)
     try:
         template = templates.load(ctx.settings.templates_dir, doc.kind, doc.template, base.template_version)
     except templates.TemplateError as exc:
         raise ToolError(f"Template problem: {exc}.") from None
-    content = await pipeline.run(ctx, module.make_job(spec, template, document_id=doc.id))
+    content = await pipeline.run(ctx, module.make_job(spec, template, document_id=doc.id, coercions=notes))
     content[0].text = content[0].text.replace(
         "Created the", f"Revised version {base.version} into a new version of the", 1
     ) + f" Version {base.version} is unchanged."

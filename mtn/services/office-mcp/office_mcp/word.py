@@ -196,8 +196,39 @@ def _cover_table(document, fields) -> None:
     document.add_paragraph()
 
 
-def build(spec: WordDocumentSpec, template: Template, target: Path, logo: bytes | None) -> dict:
+# Compact layouts used to meet target_pages without dropping content (level -> settings).
+COMPACT = {
+    1: {"body": 10.0, "after": 4, "line": 1.1, "title": 22, "h": (13.5, 11.5, 10.5), "before": (10, 8, 6), "margin": None},
+    2: {"body": 9.5, "after": 3, "line": 1.0, "title": 20, "h": (12.5, 11, 10), "before": (8, 6, 5), "margin": 1.8},
+}
+
+
+def _compact(document, level: int) -> None:
+    settings = COMPACT[level]
+    styles = document.styles
+    styles["Normal"].font.size = Pt(settings["body"])
+    styles["Normal"].paragraph_format.space_after = Pt(settings["after"])
+    styles["Normal"].paragraph_format.line_spacing = settings["line"]
+    for name in ("List Bullet", "List Number"):
+        styles[name].font.size = Pt(settings["body"])
+        styles[name].paragraph_format.space_after = Pt(max(1, settings["after"] - 2))
+    styles["Title"].font.size = Pt(settings["title"])
+    styles["Subtitle"].paragraph_format.space_after = Pt(8)
+    for level_index, size in enumerate(settings["h"], start=1):
+        heading = styles[f"Heading {level_index}"]
+        heading.font.size = Pt(size)
+        heading.paragraph_format.space_before = Pt(settings["before"][level_index - 1])
+        heading.paragraph_format.space_after = Pt(3)
+    if settings["margin"]:
+        section = document.sections[0]
+        section.left_margin = section.right_margin = Cm(settings["margin"])
+        section.top_margin, section.bottom_margin = Cm(2.2), Cm(1.8)
+
+
+def build(spec: WordDocumentSpec, template: Template, target: Path, logo: bytes | None, compact: int = 0) -> dict:
     document = Document(template.path)
+    if compact:
+        _compact(document, compact)
     _header_footer(document, spec, logo)
 
     kicker = template.manifest.get("kicker")

@@ -85,8 +85,8 @@ def test_bold_markup_becomes_bold_runs_and_control_characters_are_removed(client
         (lambda s: s.update(sections=[]), "sections"),
         (lambda s: s["sections"][2]["table"]["rows"].append(["P5", "too short"]), "sections[2].table"),
         (lambda s: s["sections"][0].update(paragraphs=[]), "sections[0]"),
-        (lambda s: s.update(title="x" * 151), "title"),
-        (lambda s: s.update(colour="red"), "colour"),
+        (lambda s: s.update(title="x" * 400), "title"),
+        (lambda s: s.update(appendix=["content that would be lost", "more content"]), "appendix"),
     ],
 )
 def test_invalid_arguments_return_fixable_errors(client, store, mutate, expected):
@@ -200,3 +200,19 @@ def test_broken_stringified_json_says_exactly_what_to_fix(client):
     assert result["isError"] is True
     message = result["content"][0]["text"]
     assert "'sections' was sent as a string" in message and "not valid JSON" in message
+
+
+def test_a_slightly_long_one_page_document_is_fitted_with_a_compact_layout(client, store):
+    """Probe case: the model's 1-page proposal overflowed by ~8 lines on every retry."""
+    import json
+    from pathlib import Path
+
+    spec = json.loads((Path(__file__).parent / "fixtures" / "one_page_proposal.json").read_text())
+    result = call(client, "create_word_document", spec)
+    assert result["isError"] is False, result
+    assert "1 page" in result["content"][0]["text"]
+    assert "compact layout" in result["content"][0]["text"]
+    version = store.list_documents(ALICE)[0].latest
+    assert version.pages == 1
+    assert any("compact layout" in c for c in version.checks["coercions"])
+    assert "page_target" not in version.checks

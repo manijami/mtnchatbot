@@ -28,7 +28,7 @@ from .templates import Template
 SLIDE_W, SLIDE_H = 13.333, 7.5
 MARGIN = 0.5
 CONTENT_W = SLIDE_W - 2 * MARGIN
-TITLE_Y, TITLE_H = 0.45, 0.85
+TITLE_Y, TITLE_H = 0.45, 0.95  # two lines at 22 pt: a 90-character title must fit
 CONTENT_TOP = 1.65
 CONTENT_BOTTOM = 6.55
 KEY_H = 0.6
@@ -38,7 +38,7 @@ BULLET_INDENT_PT = 18
 
 BULLET_SIZES = (20, 18, 16, 14)
 TABLE_SIZES = (14, 12, 11, 10)
-TITLE_SIZES = (28, 24, 22)
+TITLE_SIZES = (28, 24, 22, 20)
 CHART_COLOURS = (brand.YELLOW, brand.BLACK, "808080", "C9A400")
 CHART_TYPES = {
     "bar": XL_CHART_TYPE.BAR_CLUSTERED,
@@ -321,7 +321,7 @@ def _content_slide(prs, slide_spec: SlideSpec, index: int, number: int, total: i
     _, frame = _textbox(slide, title_box, "title")
     frame.vertical_anchor = MSO_ANCHOR.BOTTOM
     _run(frame.paragraphs[0], slide_spec.title, size, brand.BLACK, bold=True)
-    _rect(slide, Box(MARGIN + TEXT_INSET, TITLE_Y + TITLE_H + 0.08, 1.0, 0.07), brand.YELLOW, "accent")
+    _rect(slide, Box(MARGIN + TEXT_INSET, TITLE_Y + TITLE_H + 0.05, 1.0, 0.07), brand.YELLOW, "accent")
 
     bottom = CONTENT_BOTTOM - (KEY_H + 0.2 if slide_spec.key_message else 0)
     area = Box(MARGIN, CONTENT_TOP, CONTENT_W, bottom - CONTENT_TOP)

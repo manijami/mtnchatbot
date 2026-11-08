@@ -141,20 +141,31 @@ def _path(loc: tuple) -> str:
     return out or "arguments"
 
 
-def parse(model: type[BaseModel], arguments: dict) -> BaseModel:
+def _fixable(exc: ValidationError) -> ToolError:
+    problems = []
+    for error in exc.errors(include_url=False, include_input=False)[:15]:
+        message = error["msg"].removeprefix("Value error, ")
+        problems.append(f"{len(problems) + 1}. {_path(error['loc'])}: {message}")
+    more = len(exc.errors()) - len(problems)
+    if more > 0:
+        problems.append(f"... and {more} more")
+    return ToolError(
+        "The arguments are not valid. Fix these fields and call the tool again:\n" + "\n".join(problems)
+    )
+
+
+def parse(model: type[BaseModel], arguments: dict, notes: list | None = None, kind: str | None = None) -> BaseModel:
+    """Strict validation. With ``notes`` (a list), clear-intent mistakes are repaired first and
+    each repair is appended to ``notes``; only what could produce a wrong document is rejected."""
+    data = clean_tree(arguments)
     try:
-        return model.model_validate(clean_tree(arguments))
+        if notes is None:
+            return model.model_validate(data)
+        from .lenient import normalise, repair_until_valid
+
+        return repair_until_valid(model, normalise(kind or "", data, notes), notes)
     except ValidationError as exc:
-        problems = []
-        for error in exc.errors(include_url=False, include_input=False)[:15]:
-            message = error["msg"].removeprefix("Value error, ")
-            problems.append(f"{len(problems) + 1}. {_path(error['loc'])}: {message}")
-        more = len(exc.errors()) - len(problems)
-        if more > 0:
-            problems.append(f"... and {more} more")
-        raise ToolError(
-            "The arguments are not valid. Fix these fields and call the tool again:\n" + "\n".join(problems)
-        ) from None
+        raise _fixable(exc) from None
 
 
 # --------------------------------------------------------------------------------------------
@@ -262,7 +273,7 @@ class SlideTable(Table):
 
 class SlideSpec(Strict):
     title: Annotated[str, Field(min_length=1, max_length=90)]
-    bullets: Annotated[list[SlideLine], Field(max_length=6)] = []
+    bullets: Annotated[list[SlideLine], Field(max_length=8)] = []
     table: SlideTable | None = None
     chart: Chart | None = None
     key_message: Annotated[str, Field(max_length=140)] | None = None

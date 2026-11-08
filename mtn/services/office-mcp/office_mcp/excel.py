@@ -369,7 +369,8 @@ def recalc_report(original: Path, recalculated: Path) -> dict:
                     report["formulas"] += 1
                     if value not in (None, ""):
                         report["computed"] += 1
-                if isinstance(value, str) and value.startswith(ERROR_VALUES):
+                # Only formula results count: "#N/A" typed into a data cell is the user's text.
+                if is_formula and isinstance(value, str) and value.startswith(ERROR_VALUES):
                     report["errors"].append(f"{_sheet_ref(ws.title)}!{cell.coordinate}: {value}")
     return report
 
@@ -385,3 +386,14 @@ def scan_errors(recalculated: Path) -> list[str]:
                 if isinstance(value, str) and value.startswith(ERROR_VALUES):
                     found.append(f"{_sheet_ref(ws.title)}!{cell.coordinate}: {value}")
     return found
+
+
+def formula_count(path: Path) -> int:
+    workbook = load_workbook(path)
+    return sum(
+        1
+        for ws in workbook.worksheets
+        for row in ws.iter_rows()
+        for cell in row
+        if isinstance(cell.value, str) and cell.value.startswith("=")
+    )

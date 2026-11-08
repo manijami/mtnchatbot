@@ -6,6 +6,7 @@ import base64
 import re
 import time
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Awaitable, Callable
 
@@ -64,6 +65,9 @@ class Job:
     document_id: str | None = None  # set for a revision
     summary: Callable[[dict], str] | None = None
     preview: dict | None = None  # preview_png options (dpi, max_pages, columns)
+    coercions: list[str] | None = None  # lenient repairs applied to the arguments
+    compact_levels: int = 0  # extra layout-tightening attempts to meet target_pages
+    post_render_checks: Callable[[Path, Path, Path, dict], Awaitable[None]] | None = None  # (file, folder, pdf, checks)
 
 
 async def run(ctx: ToolContext, job: Job) -> list:
@@ -86,28 +90,47 @@ async def run(ctx: ToolContext, job: Job) -> list:
     folder = store.version_dir(owner, document_id, version)
     target = folder / output_filename(job.spec, version, job.ext)
     checks: dict = {"template": f"{job.template.name} {job.template.version}"}
+    if job.coercions:
+        checks["coercions"] = list(job.coercions)
     timings: dict = {}
     try:
         logo = await anyio.to_thread.run_sync(brand.load_logo, settings.logo_dir)
         checks["logo"] = "added" if logo else "absent"
+        for level in range(job.compact_levels + 1):
+            mark = time.monotonic()
+            build = job.build if not level else partial(job.build, compact=level)
+            stats = await anyio.to_thread.run_sync(build, job.spec, job.template, target, logo)
+            timings["build_ms"] = timings.get("build_ms", 0) + int((time.monotonic() - mark) * 1000)
+            mime = check_package(target, settings.max_file_bytes, checks)
+            checks["reopen"] = await anyio.to_thread.run_sync(job.reopen, target)
+            if job.extra_checks:
+                await job.extra_checks(target, folder, checks)
+            mark = time.monotonic()
+            pdf = await render.convert(target, "pdf", folder, settings.convert_timeout_s)
+            pdf = pdf.rename(folder / "preview.pdf")
+            pages = await render.pdf_pages(pdf)
+            checks["render"] = "ok"
+            checks["pages"] = pages
+            if "slides" in stats and pages != stats["slides"]:
+                raise ValueError(f"LibreOffice rendered {pages} slides but the deck has {stats['slides']}")
+            timings["render_ms"] = timings.get("render_ms", 0) + int((time.monotonic() - mark) * 1000)
+            if job.post_render_checks:
+                await job.post_render_checks(target, folder, pdf, checks)
+            try:
+                await _check_page_target(job, pages, pdf, checks)
+            except PageTargetExceeded:
+                if level < job.compact_levels:
+                    continue  # tighten the layout and try again; no content is dropped
+                raise
+            if level:
+                note = f"compact layout (level {level}) used to fit target_pages {job.spec.target_pages}"
+                job.coercions = [*(job.coercions or []), note]
+                checks["coercions"] = list(job.coercions)
+                checks.pop("page_target", None)
+            break
         mark = time.monotonic()
-        stats = await anyio.to_thread.run_sync(job.build, job.spec, job.template, target, logo)
-        timings["build_ms"] = int((time.monotonic() - mark) * 1000)
-        mime = check_package(target, settings.max_file_bytes, checks)
-        checks["reopen"] = await anyio.to_thread.run_sync(job.reopen, target)
-        if job.extra_checks:
-            await job.extra_checks(target, folder, checks)
-        mark = time.monotonic()
-        pdf = await render.convert(target, "pdf", folder, settings.convert_timeout_s)
-        pdf = pdf.rename(folder / "preview.pdf")
-        pages = await render.pdf_pages(pdf)
-        checks["render"] = "ok"
-        checks["pages"] = pages
-        if "slides" in stats and pages != stats["slides"]:
-            raise ValueError(f"LibreOffice rendered {pages} slides but the deck has {stats['slides']}")
-        await _check_page_target(job, pages, pdf, checks)
         await render.preview_png(pdf, folder / "preview.png", pages, **(job.preview or {}))
-        timings["render_ms"] = int((time.monotonic() - mark) * 1000)
+        timings["render_ms"] += int((time.monotonic() - mark) * 1000)
     except PageTargetExceeded as exc:
         checks["error"] = str(exc)
         store.fail_version(document_id=document_id, version=version, error=str(exc), checks=checks)
@@ -155,6 +178,8 @@ def _deliver(ctx, job: Job, document_id, version, target: Path, mime, stats, che
         f"Logo {'added' if checks.get('logo') == 'added' else 'not available (logo-free output)'}.\n"
         "The file is attached to this message for the user. Do not paste file contents or links."
     )
+    if job.coercions:
+        text += "\nAdjusted automatically: " + "; ".join(job.coercions[:8]) + "."
     if "revise_office_file" in registry:
         text += " To change it, call revise_office_file with this document_id."
     if job.kind == "powerpoint":
