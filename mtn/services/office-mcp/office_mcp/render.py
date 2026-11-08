@@ -128,3 +128,13 @@ async def preview_png(
         for frame in frames:
             frame.close()
     return target
+
+
+async def pdf_text_lines(pdf: Path, first: int, last: int) -> int:
+    """Non-empty text lines on pages first..last (layout mode), to size an overflow."""
+    code, output = await _run(
+        ["pdftotext", "-layout", "-f", str(first), "-l", str(last), str(pdf), "-"], timeout=20
+    )
+    if code != 0:
+        return 0
+    return sum(1 for line in output.decode(errors="replace").splitlines() if line.strip())

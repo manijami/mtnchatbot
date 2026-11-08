@@ -148,17 +148,18 @@ def test_unknown_artifact_name_is_404(client):
         assert client.get(f"/v1/documents/{doc_id}/versions/1/{name}", headers=headers()).status_code == 404
 
 
-def test_page_target_rejects_a_longer_document_with_a_word_budget(client, store):
+def test_page_target_rejects_a_longer_document_with_the_measured_overflow(client, store):
     spec = incident_process_spec(target_pages=1)
     result = call(client, "create_word_document", spec)
     assert result["isError"] is True
     message = result["content"][0]["text"]
     assert "renders to 2 pages but target_pages is 1" in message
-    assert "words per page" in message and "call the tool again" in message
+    assert "lines spill past page 1" in message and "7 sections" in message
     assert not [c for c in result["content"] if c["type"] == "resource"]
     [doc] = store.list_documents(ALICE)
     assert doc.latest.status == "failed"
-    assert doc.latest.checks["page_target"] == {"target": 1, "rendered": 2}
+    target = doc.latest.checks["page_target"]
+    assert target["target"] == 1 and target["rendered"] == 2 and target["overflow_lines"] > 10
 
 
 def test_page_target_met_is_delivered(client):
@@ -173,3 +174,29 @@ def test_table_rows_do_not_split_across_pages_and_header_repeats(client):
     table = document.tables[1]
     assert table.rows[0]._tr.trPr.xml.count("tblHeader") == 1
     assert all("cantSplit" in row._tr.trPr.xml for row in table.rows[1:])
+
+
+
+def test_stringified_container_fields_are_decoded(client):
+    import json
+
+    spec = incident_process_spec()
+    spec["sections"] = json.dumps(spec["sections"])
+    result = call(client, "create_word_document", spec)
+    assert result["isError"] is False, result
+
+
+def test_text_that_merely_starts_with_a_bracket_stays_text(client):
+    spec = incident_process_spec()
+    spec["sections"][0]["paragraphs"] = ["[Draft] for review", "{placeholder} text"]
+    result = call(client, "create_word_document", spec)
+    assert result["isError"] is False, result
+
+
+def test_broken_stringified_json_says_exactly_what_to_fix(client):
+    spec = incident_process_spec()
+    spec["sections"] = '[{"heading": "A", "paragraphs": ["x"] "level": 1}]'
+    result = call(client, "create_word_document", spec)
+    assert result["isError"] is True
+    message = result["content"][0]["text"]
+    assert "'sections' was sent as a string" in message and "not valid JSON" in message

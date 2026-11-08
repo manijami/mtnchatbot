@@ -33,21 +33,23 @@ class PageTargetExceeded(ValueError):
     pass
 
 
-def _check_page_target(job: "Job", pages: int, stats: dict, checks: dict) -> None:
+async def _check_page_target(job: "Job", pages: int, pdf: Path, checks: dict) -> None:
+    """Rejects a render longer than target_pages, saying how much must go and how."""
     target = getattr(job.spec, "target_pages", None)
     if not target or pages <= target:
         return
-    words = int(stats.get("words") or 0)
-    per_page = max(1, round(words / pages)) if words else 0
-    budget = per_page * target
-    hint = (
-        f" At about {per_page} words per page with these headings and tables, keep the body under "
-        f"about {int(budget * 0.9)} words (it has {words}), or use fewer sections and shorter tables."
-        if per_page
-        else ""
+    overflow = await render.pdf_text_lines(pdf, target + 1, pages)
+    per_page = await render.pdf_text_lines(pdf, 1, 1) or 45
+    checks["page_target"] = {"target": target, "rendered": pages, "overflow_lines": overflow}
+    sections = getattr(job.spec, "sections", []) or []
+    tables = sum(1 for section in sections if getattr(section, "table", None))
+    raise PageTargetExceeded(
+        f"it renders to {pages} pages but target_pages is {target}: about {overflow} lines spill past "
+        f"page {target} (a full page holds about {per_page}). Remove at least that many lines. "
+        f"Each section heading with its spacing takes about 3 lines, each table row 1-2 lines and each "
+        f"sentence about 1 line (the document has {len(sections)} sections and {tables} tables). "
+        "Merging or dropping sections and table rows saves the most."
     )
-    checks["page_target"] = {"target": target, "rendered": pages}
-    raise PageTargetExceeded(f"it renders to {pages} pages but target_pages is {target}.{hint}")
 
 
 @dataclass
@@ -103,7 +105,7 @@ async def run(ctx: ToolContext, job: Job) -> list:
         checks["pages"] = pages
         if "slides" in stats and pages != stats["slides"]:
             raise ValueError(f"LibreOffice rendered {pages} slides but the deck has {stats['slides']}")
-        _check_page_target(job, pages, stats, checks)
+        await _check_page_target(job, pages, pdf, checks)
         await render.preview_png(pdf, folder / "preview.png", pages, **(job.preview or {}))
         timings["render_ms"] = int((time.monotonic() - mark) * 1000)
     except PageTargetExceeded as exc:
@@ -159,7 +161,9 @@ def _deliver(ctx, job: Job, document_id, version, target: Path, mime, stats, che
         from .revise import outline
 
         # The model must use the user's slide numbers (title slide = 1), not its own.
-        text += "\nSlides as the user sees them:\n" + "\n".join(outline("powerpoint", job.spec.model_dump(mode="json")))
+        text += "\nSlides (numbered as the user sees them; use these paths to revise):\n" + "\n".join(
+            outline("powerpoint", job.spec.model_dump(mode="json"))
+        )
     content: list = [
         types.TextContent(type="text", text=text),
         types.EmbeddedResource(

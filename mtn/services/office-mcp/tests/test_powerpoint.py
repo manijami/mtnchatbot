@@ -65,7 +65,7 @@ def test_logo_on_every_slide_when_available(settings, store, tmp_path):
     "mutate,expected",
     [
         (lambda s: s.update(target_slides=6), "give exactly 5 items in slides"),
-        (lambda s: s["slides"][2].update(chart=s["slides"][1]["chart"]), "either table or chart"),
+        (lambda s: s["slides"][2].update(chart=s["slides"][1]["chart"]), "a table or a chart, not both"),
         (lambda s: s["slides"][1]["chart"]["series"][0]["values"].pop(), "series[0] has 2 values"),
         (lambda s: s["slides"][3]["chart"]["series"].append({"name": "x", "values": [1, 2, 3, 4]}), "pie chart takes exactly one series"),
         (lambda s: s["slides"][0].update(bullets=["x"] * 7), "slides[0].bullets"),

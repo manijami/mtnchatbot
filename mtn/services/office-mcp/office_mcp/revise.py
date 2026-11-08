@@ -25,12 +25,14 @@ def outline(kind: str, spec: dict) -> list[str]:
             for i, s in enumerate(spec.get("sections", []))
         ]
     if kind == "powerpoint":
-        offset = 2 if spec.get("include_title_slide", True) else 1
-        lines = ["slide 1 (/slide/1): title slide (/title, /subtitle)"] if offset == 2 else []
+        # One number per slide, exactly as the user sees it; the path uses the same number.
+        has_title = spec.get("include_title_slide", True)
+        offset = 2 if has_title else 1
+        lines = ['Slide 1 "' + str(spec.get("title")) + '" (title slide): /slide/1'] if has_title else []
         for i, s in enumerate(spec.get("slides", [])):
             parts = [f"{len(s['bullets'])} bullets"] if s.get("bullets") else []
             parts += [k for k in ("table", "chart", "key_message", "notes") if s.get(k)]
-            lines.append(f"slide {i + offset} = /slide/{i + offset} = /slides/{i}: \"{s.get('title')}\" ({', '.join(parts)})")
+            lines.append(f'Slide {i + offset} "{s.get("title")}" ({", ".join(parts)}): /slide/{i + offset}')
         return lines
     if kind == "excel":
         return [

@@ -7,6 +7,7 @@ model can fix, instead of the provider rejecting the call outright.
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Annotated, Literal
 
@@ -28,14 +29,47 @@ Paragraph = Annotated[str, Field(min_length=1, max_length=4000)]
 Cell = Annotated[str, Field(max_length=500)]
 
 
-def clean_tree(value):
-    """Removes XML-invalid control characters from every string in the arguments."""
+# Container fields some models send as a JSON-encoded string ("sections": "[{...}]"). Only these
+# keys are decoded, and only when the string is valid JSON of the right shape.
+_CONTAINER_KEYS = frozenset(
+    """sections slides sheets rows columns bullets paragraphs numbered table chart series categories
+    cover_fields totals conditional_formats summary values value_columns allowed_values changes
+    content""".split()
+)
+
+
+class _BrokenContainer(str):
+    """A stringified container that is not valid JSON (kept so the error can say so)."""
+
+
+def _decode_container(key, value):
+    if key in _CONTAINER_KEYS and isinstance(value, str) and value.strip()[:1] in ("[", "{"):
+        try:
+            decoded = json.loads(value)
+        except ValueError as exc:
+            broken = _BrokenContainer(value)
+            broken.reason = f"{exc.msg} at character {exc.pos}"
+            return broken
+        if isinstance(decoded, (list, dict)):
+            return decoded
+    return value
+
+
+def clean_tree(value, key=None):
+    """Removes XML-invalid control characters and decodes stringified containers."""
+    value = _decode_container(key, value)
+    if isinstance(value, _BrokenContainer):
+        raise ToolError(
+            f"The arguments are not valid. '{key}' was sent as a string, and that string is not valid "
+            f"JSON ({value.reason}). Send '{key}' as a JSON array/object itself, not as a quoted string, "
+            "and call the tool again."
+        )
     if isinstance(value, str):
         return clean(value)
     if isinstance(value, list):
         return [clean_tree(v) for v in value]
     if isinstance(value, dict):
-        return {k: clean_tree(v) for k, v in value.items()}
+        return {k: clean_tree(v, k) for k, v in value.items()}
     return value
 
 
@@ -237,7 +271,10 @@ class SlideSpec(Strict):
     @model_validator(mode="after")
     def _content(self):
         if self.table and self.chart:
-            raise ValueError("use either table or chart on one slide, not both; split them over two slides")
+            raise ValueError(
+                "a slide holds a table or a chart, not both: put the table on another slide, or when "
+                "revising, remove the chart (op remove, path /slide/N/chart) in the same change list"
+            )
         if not (self.bullets or self.table or self.chart):
             raise ValueError("a slide needs bullets, a table or a chart")
         return self
