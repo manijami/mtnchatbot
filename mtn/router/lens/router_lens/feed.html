@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MTN Smart Router · Live routing</title>
+<style>
+  :root { --yellow:#FFCB05; --black:#000; --ink:#1F1F1F; --grey:#6B6B6B; --line:#E5E5E5; --tint:#FFF5CC;
+          --fast:#2E7D32; --balanced:#1565C0; --capable:#000; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"MTN Brighter Sans", Arial, Helvetica, sans-serif; color:var(--ink); background:#FAFAFA; }
+  header { background:var(--black); color:#fff; padding:14px 24px; display:flex; align-items:center; gap:14px; }
+  header .mark { background:var(--yellow); color:#000; font-weight:700; border-radius:50%; padding:6px 10px; font-size:13px; }
+  header h1 { font-size:18px; margin:0; font-weight:600; }
+  header .sub { color:#BDBDBD; font-size:13px; margin-left:auto; }
+  .bar { height:4px; background:var(--yellow); }
+  main { padding:18px 24px; max-width:1200px; margin:0 auto; }
+  .tiles { display:grid; grid-template-columns:repeat(5, minmax(120px,1fr)); gap:12px; margin-bottom:16px; }
+  .tile { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
+  .tile .k { font-size:12px; color:var(--grey); text-transform:uppercase; letter-spacing:.04em; }
+  .tile .v { font-size:28px; font-weight:700; margin-top:4px; }
+  .tile.cost { background:var(--tint); border-color:var(--yellow); }
+  .tile .note { font-size:11px; color:var(--grey); margin-top:2px; }
+  .controls { display:flex; justify-content:space-between; align-items:center; margin:6px 0 10px; font-size:13px; color:var(--grey); }
+  table { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden; font-size:14px; }
+  th { text-align:left; background:var(--yellow); color:#000; padding:8px 10px; font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
+  td { padding:8px 10px; border-top:1px solid var(--line); vertical-align:top; }
+  tr.new td { animation:flash 1.6s ease-out; }
+  @keyframes flash { from { background:var(--tint); } to { background:#fff; } }
+  .pill { display:inline-block; border-radius:999px; padding:2px 10px; font-size:12px; font-weight:700; color:#fff; }
+  .pill.fast { background:var(--fast); } .pill.balanced { background:var(--balanced); } .pill.capable { background:var(--capable); }
+  .pill.error { background:#C62828; }
+  .muted { color:var(--grey); } .num { text-align:right; white-space:nowrap; }
+  .hidden-prompts .prompt { filter:blur(5px); }
+  footer { color:var(--grey); font-size:12px; margin-top:12px; }
+  @media (max-width:800px) { .tiles { grid-template-columns:repeat(2,1fr); } .hide-sm { display:none; } }
+</style>
+</head>
+<body>
+<header><span class="mark">MTN</span><h1>MTN Smart Router · live routing decisions</h1><span class="sub">Demo · synthetic data only</span></header>
+<div class="bar"></div>
+<main>
+  <section class="tiles">
+    <div class="tile"><div class="k">Fast</div><div class="v" id="t-fast">0</div><div class="note">Groq gpt-oss-20b</div></div>
+    <div class="tile"><div class="k">Balanced</div><div class="v" id="t-balanced">0</div><div class="note">Groq gpt-oss-120b</div></div>
+    <div class="tile"><div class="k">Capable</div><div class="v" id="t-capable">0</div><div class="note">NVIDIA Nemotron 3 Ultra</div></div>
+    <div class="tile"><div class="k">% on capable</div><div class="v" id="t-share">–</div><div class="note">of routed turns</div></div>
+    <div class="tile cost"><div class="k">Relative cost</div><div class="v" id="t-cost">–</div><div class="note">100 = every turn on capable · list prices · judge included</div></div>
+  </section>
+  <div class="controls">
+    <span id="status">Connecting…</span>
+    <label><input type="checkbox" id="hide"> Hide prompts</label>
+  </div>
+  <table id="feed">
+    <thead><tr><th>Time</th><th>Prompt (first 80 chars)</th><th>Tier</th><th class="hide-sm">Reason</th><th class="hide-sm">Model</th><th class="num">Latency</th><th class="num hide-sm">Tokens</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <footer>Routing by NVIDIA NeMo Switchyard (pre-alpha, v0.3.0 + MTN patch). Judge: Groq gpt-oss-20b (backup: NVIDIA Nemotron 3.5 Bolt). Cost index from published list prices retrieved 2026-11-08 (Groq; OpenRouter for Nemotron 3 Ultra); relative only.</footer>
+</main>
+<script>
+  const body = document.querySelector('#feed tbody');
+  const text = (s) => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
+  function row(d, fresh) {
+    const tr = document.createElement('tr');
+    if (fresh) tr.className = 'new';
+    const tier = d.status === 'ok' ? d.tier : 'error';
+    const tierLabel = tier + (d.verdict_tier && d.verdict_tier !== d.tier ? ` <span class="muted">(judge: ${text(d.verdict_tier)})</span>` : '');
+    const reasonNote = d.reason_source === 'judge' ? '' : ` <span class="muted">(${d.reason_source === 'fail_open' ? 'fallback' : 'rule'})</span>`;
+    const backup = d.judge_route === 'backup' ? ' <span class="muted">· backup judge</span>' : '';
+    tr.innerHTML = `<td class="muted">${text(d.time)}</td><td class="prompt">${text(d.prompt)}</td>` +
+      `<td><span class="pill ${tier}">${tierLabel}</span></td><td class="hide-sm">${text(d.reason)}${reasonNote}${backup}</td>` +
+      `<td class="hide-sm">${text(d.model)}</td><td class="num">${(d.latency_ms / 1000).toFixed(1)} s</td>` +
+      `<td class="num hide-sm">${d.prompt_tokens + d.completion_tokens || '–'}</td>`;
+    return tr;
+  }
+  function summary(s) {
+    for (const t of ['fast', 'balanced', 'capable']) document.getElementById('t-' + t).textContent = s.turns[t];
+    document.getElementById('t-share').textContent = s.capable_share == null ? '–' : s.capable_share + '%';
+    document.getElementById('t-cost').textContent = s.cost_index == null ? '–' : Math.round(s.cost_index);
+  }
+  fetch('state').then(r => r.json()).then(st => { summary(st.summary); st.recent.forEach(d => body.appendChild(row(d, false))); });
+  const es = new EventSource('events');
+  es.onopen = () => document.getElementById('status').textContent = 'Live';
+  es.onerror = () => document.getElementById('status').textContent = 'Reconnecting…';
+  es.onmessage = (e) => { const p = JSON.parse(e.data); summary(p.summary); body.prepend(row(p.decision, true)); while (body.children.length > 50) body.lastChild.remove(); };
+  document.getElementById('hide').addEventListener('change', (e) => document.body.classList.toggle('hidden-prompts', e.target.checked));
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "_note": "Published list prices in USD per 1M tokens, used ONLY to compute a relative cost index (100 = every turn on the capable tier). No currency is shown in the demo.",
+  "retrieved": "2026-11-08",
+  "models": {
+    "openai/gpt-oss-20b": {
+      "input": 0.075,
+      "output": 0.3,
+      "source": "Groq production models table, console.groq.com/docs/models"
+    },
+    "openai/gpt-oss-120b": {
+      "input": 0.15,
+      "output": 0.6,
+      "source": "Groq production models table, console.groq.com/docs/models"
+    },
+    "nvidia/nemotron-3-ultra-550b-a55b": {
+      "input": 0.6,
+      "output": 2.4,
+      "source": "OpenRouter list price via pricepertoken.com (updated 2026-11-07); same as Fireworks/Baseten on artificialanalysis.ai. NVIDIA's hosted dev endpoint has no list price."
+    },
+    "nvidia/nemotron-3.5-bolt-e4b": {
+      "input": 0.075,
+      "output": 0.3,
+      "source": "No published list price found; priced as Groq gpt-oss-20b (proxy) for the backup judge."
+    }
+  },
+  "capable_model": "nvidia/nemotron-3-ultra-550b-a55b"
+}
