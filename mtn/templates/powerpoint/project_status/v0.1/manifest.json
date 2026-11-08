@@ -1,0 +1,36 @@
+{
+  "kind": "powerpoint",
+  "name": "project_status",
+  "version": "v0.1",
+  "file": "template.pptx",
+  "sha256": "64f68110a14b4d1c9fc60bf5074cd1f5e56b3f2a2ce71705684ddb1f058fe785",
+  "slide": {
+    "width_in": 13.333,
+    "height_in": 7.5,
+    "safe_margin_in": 0.5
+  },
+  "font": {
+    "primary": "MTN Brighter Sans",
+    "fallback": "Arial",
+    "embedded": false
+  },
+  "colours": {
+    "yellow": "FFCB05",
+    "black": "000000",
+    "ink": "1F1F1F",
+    "tint": "FFF5CC"
+  },
+  "classification": "MTN Internal",
+  "logo": {
+    "placement": "top-right",
+    "height_in": 0.6
+  },
+  "limits": {
+    "max_slides": 20,
+    "max_bullets": 6,
+    "max_bullet_chars": 160
+  },
+  "title": "Project status",
+  "description": "Project status report: milestones, status by workstream, risks, next steps.",
+  "suggested_slides": ["Title", "Overview", "Milestones", "Workstreams", "Risks", "Next steps"]
+}

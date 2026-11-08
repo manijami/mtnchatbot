@@ -1,0 +1,28 @@
+{
+  "kind": "excel",
+  "name": "project_plan",
+  "version": "v0.1",
+  "file": "template.xlsx",
+  "sha256": "da964112430e34425cf1541bf1aea9e4d8dbdcb939ebc5fb157548318e56b477",
+  "font": {
+    "primary": "MTN Brighter Sans",
+    "fallback": "Arial",
+    "embedded": false
+  },
+  "colours": {
+    "yellow": "FFCB05",
+    "black": "000000",
+    "ink": "1F1F1F",
+    "tint": "FFF5CC"
+  },
+  "classification": "MTN Internal",
+  "named_styles": ["MTN Title", "MTN Subtitle", "MTN Header", "MTN Cell", "MTN Total"],
+  "limits": {
+    "max_sheets": 6,
+    "max_rows": 2000,
+    "max_columns": 30
+  },
+  "title": "Project plan",
+  "description": "Tasks with start/end dates, duration formulas, owners, progress and a chart.",
+  "suggested_columns": ["Task", "Owner", "Start", "End", "Duration (days)", "% complete"]
+}
