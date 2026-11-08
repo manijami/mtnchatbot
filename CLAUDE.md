@@ -305,6 +305,11 @@ Record every deviation from upstream here with rationale, so future upstream mer
   within 3 calls) but 3-4x slower (median 40-43 s per call, p90 up to ~2 min), and in an early
   run it answered two deck requests in text instead of calling the tool. Only Nemotron Ultra is
   listed for the `nvidia` endpoint; Groq `gpt-oss-120b` remains the fallback spec.
+- _2026-11-08_ — **Phases 2 (Identity), 3 (Infrastructure & data) and 6 (Hardening) paused** by the
+  user. Next: finish Phase 4's second-user API check, then a **"Model router demo"** (NVIDIA NeMo
+  Switchyard routing chat turns across Groq and NVIDIA models) on branch `mtn/router-switchyard`,
+  dev/demo only with synthetic data. Phase 3 items recorded above (Code Interpreter, managed
+  stores, Redis streams, NIM self-hosting) stay on the list for when the phase resumes.
 - _2026-11-08_ — **Local dev:** `SCHEDULES_SINGLE_PROCESS=true` in `.env` (single API replica, no
   Redis) so the schedules engine arms. Not for multi-replica deployments.
 
