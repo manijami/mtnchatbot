@@ -1,0 +1,6 @@
+# Build context is the repo root; send only the overlay inputs.
+*
+!packages/data-provider/dist
+!packages/api/dist
+!api/server/controllers/agents/callbacks.js
+!api/server/services/Files/process.js

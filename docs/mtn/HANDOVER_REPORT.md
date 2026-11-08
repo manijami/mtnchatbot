@@ -218,6 +218,29 @@ Only `admin-panel` defines a Docker healthcheck; the others were verified by sta
   LibreChat's own default (1.20:1). Conversation rows also get a 2px `text-primary` left bar,
   but nav buttons, settings tabs and prompt items rely on the fill alone. Follow-up: a design
   decision (a 3:1 light fill needs a dark-gold tone).
+- **KNOWN ISSUE — local install gaps in `packages/api` tests (Phase 4, 2026-11-08).** After
+  `npm ci` on this Mac, two packages do not resolve from `packages/api`:
+  - `winston-daily-rotate-file` (a `@librechat/data-schemas` peer) is installed only under
+    `api/node_modules`, so `packages/api` Jest suites that load the logger fail to start.
+    **Workaround:** run them with `NODE_PATH=../../api/node_modules`, e.g.
+    `cd packages/api && NODE_PATH=../../api/node_modules npx jest <paths>`.
+  - `@opentelemetry/sdk-node` exists only nested under `@librechat/agents`, at a different
+    version, so `tsc --noEmit` reports TS2307 in `src/telemetry/*`. Pre-existing and unrelated to
+    MTN changes; the rest of `packages/api` typechecks clean.
+  - **Before any release, confirm the full `packages/api` suite on Linux CI** (clean `npm ci`).
+    Locally, the full run is also not a reliable signal: on this 4-core Mac about 600 hook
+    timeouts come from `mongodb-memory-server` under parallel load, and 7 suites (plus a flaky
+    ACL locking test) fail on the untouched baseline too.
+- **Core change is deployed locally as an overlay, not a full image build (Phase 4).** The api
+  container runs `mtn-librechat-core:local` = branding image + the backend build of the MTN core
+  deviation (`mtn/deploy/core.Dockerfile`), because a full LibreChat build (Vite frontend) needs
+  more memory than the 3 GB Docker VM has. Valid only while the upstream base image matches our
+  base commit. Production builds the whole image from source in CI.
+- **LibreChat bans non-browser API clients.** Calling `/api/*` from a script without a browser
+  User-Agent scores a `non_browser` violation and bans the user **and the source IP** (the Docker
+  gateway, so every local browser session) for 120 minutes. This happened once during Phase 4
+  testing; the four ban entries were removed from the `logs` collection. Run API-level checks
+  from the browser session instead.
 
 ### Decisions waiting on MTN
 

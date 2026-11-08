@@ -36,3 +36,7 @@ registry: dict[str, Tool] = {}
 def register(tool: Tool) -> Tool:
     registry[tool.definition.name] = tool
     return tool
+
+
+# Tool modules register themselves on import.
+from . import word_tool  # noqa: E402,F401

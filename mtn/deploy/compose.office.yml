@@ -4,6 +4,18 @@
 # Relative paths resolve against the project directory (the repo root).
 services:
   api:
+    # Office files reach the chat through the MTN MCP file-outputs core change, so api runs the
+    # core-deviation overlay (mtn/deploy/core.Dockerfile) on top of the branding image.
+    # Build order: branding image first (docker build mtn/branding -t mtn-librechat:local),
+    # then host dists (npm run build:data-provider && npm run build:api), then
+    # `docker compose build api`.
+    image: mtn-librechat-core:local
+    build:
+      context: .
+      dockerfile: mtn/deploy/core.Dockerfile
+      args:
+        BASE_IMAGE: mtn-librechat:local
+    pull_policy: never
     networks:
       - default
       - office
