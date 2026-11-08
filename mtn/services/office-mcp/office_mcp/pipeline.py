@@ -155,6 +155,11 @@ def _deliver(ctx, job: Job, document_id, version, target: Path, mime, stats, che
     )
     if "revise_office_file" in registry:
         text += " To change it, call revise_office_file with this document_id."
+    if job.kind == "powerpoint":
+        from .revise import outline
+
+        # The model must use the user's slide numbers (title slide = 1), not its own.
+        text += "\nSlides as the user sees them:\n" + "\n".join(outline("powerpoint", job.spec.model_dump(mode="json")))
     content: list = [
         types.TextContent(type="text", text=text),
         types.EmbeddedResource(

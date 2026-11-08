@@ -26,11 +26,11 @@ def outline(kind: str, spec: dict) -> list[str]:
         ]
     if kind == "powerpoint":
         offset = 2 if spec.get("include_title_slide", True) else 1
-        lines = ["slide 1: title slide (/title, /subtitle)"] if offset == 2 else []
+        lines = ["slide 1 (/slide/1): title slide (/title, /subtitle)"] if offset == 2 else []
         for i, s in enumerate(spec.get("slides", [])):
             parts = [f"{len(s['bullets'])} bullets"] if s.get("bullets") else []
             parts += [k for k in ("table", "chart", "key_message", "notes") if s.get(k)]
-            lines.append(f"slide {i + offset} = /slides/{i}: \"{s.get('title')}\" ({', '.join(parts)})")
+            lines.append(f"slide {i + offset} = /slide/{i + offset} = /slides/{i}: \"{s.get('title')}\" ({', '.join(parts)})")
         return lines
     if kind == "excel":
         return [
@@ -61,6 +61,24 @@ def _step(node, token: str, path: str, *, allow_append: bool = False):
     raise ToolError(f"Change path {path}: cannot go into a {type(node).__name__}.")
 
 
+def _visible_slide_alias(tokens: list[str], spec: dict, kind: str, path: str) -> list[str]:
+    """/slide/N/... (visible slide number, as the user sees it) -> /slides/<index>/..."""
+    if kind != "powerpoint" or len(tokens) < 2 or tokens[0] != "slide":
+        return tokens
+    has_title = spec.get("include_title_slide", True)
+    if not tokens[1].isdigit():
+        raise ToolError(f"Change path {path}: use /slide/<number>, e.g. /slide/2/bullets.")
+    number = int(tokens[1])
+    if has_title and number == 1:
+        if len(tokens) == 2:
+            raise ToolError("Slide 1 is the title slide; change /title or /subtitle instead.")
+        return tokens[2:]  # /slide/1/title -> /title
+    index = number - (2 if has_title else 1)
+    if index < 0 or index >= len(spec.get("slides", [])):
+        raise ToolError(_missing(path, spec, kind))
+    return ["slides", str(index), *tokens[2:]]
+
+
 def apply_changes(spec: dict, changes: list, kind: str) -> dict:
     """Applies add/replace/remove operations to a deep copy of ``spec``."""
     if not isinstance(changes, list) or not changes:
@@ -70,7 +88,7 @@ def apply_changes(spec: dict, changes: list, kind: str) -> dict:
         if not isinstance(change, dict):
             raise ToolError(f"changes[{number}] must be an object with op, path and value.")
         op, path = change.get("op"), str(change.get("path", ""))
-        tokens = _tokens(path)
+        tokens = _visible_slide_alias(_tokens(path), spec, kind, path)
         if op not in ("add", "replace", "remove") or not tokens:
             raise ToolError(f"changes[{number}]: op must be add, replace or remove, with a path like /slides/0/bullets.")
         parent = result

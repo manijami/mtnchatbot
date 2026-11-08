@@ -101,7 +101,7 @@ def test_bad_path_returns_the_outline(client, store):
     result = call(client, "revise_office_file", {
         "document_id": doc_id, "changes": [{"op": "remove", "path": "/slides/0/table"}]
     })
-    assert "slide 2 = /slides/0: \"Summary\"" in result["content"][0]["text"]
+    assert "slide 2 = /slide/2 = /slides/0: \"Summary\"" in result["content"][0]["text"]
     assert [v.version for v in store.get_document(ALICE, doc_id).versions] == [1]
 
 
@@ -131,7 +131,7 @@ def test_status_lists_versions_and_outline_for_the_owner(client):
     call(client, "revise_office_file", {"document_id": doc_id, "changes": [{"op": "replace", "path": "/subtitle", "value": "Q3 v2"}]})
     text = call(client, "get_generation_status", {"document_id": doc_id})["content"][0]["text"]
     assert "- v1 complete" in text and "- v2 complete" in text
-    assert "Outline of v2" in text and "slide 5 = /slides/3" in text
+    assert "Outline of v2" in text and "slide 5 = /slide/5 = /slides/3" in text
     listing = call(client, "get_generation_status", {})["content"][0]["text"]
     assert doc_id in listing and "latest v2 (complete)" in listing
 
@@ -140,3 +140,27 @@ def test_exactly_one_of_changes_or_content(client):
     doc_id = _doc_id(call(client, "create_word_document", incident_process_spec()))
     result = call(client, "revise_office_file", {"document_id": doc_id})
     assert result["content"][0]["text"] == "Pass exactly one of changes or content."
+
+
+def test_visible_slide_numbers_address_the_slide_the_user_sees(client, store):
+    created = call(client, "create_powerpoint_presentation", deck_spec())
+    assert 'slide 2 = /slide/2 = /slides/0: "Summary"' in created["content"][0]["text"]
+    doc_id = _doc_id(created)
+    result = call(client, "revise_office_file", {
+        "document_id": doc_id,
+        "changes": [
+            {"op": "replace", "path": "/slide/2/bullets", "value": ["Shortened"]},
+            {"op": "add", "path": "/slide/5/table", "value": RISKS},
+            {"op": "remove", "path": "/slide/5/chart"},
+            {"op": "replace", "path": "/slide/1/subtitle", "value": "Q3 review, revised"},
+        ],
+    })
+    assert result["isError"] is False, result
+    spec = store.get_document(ALICE, doc_id).versions[1].spec
+    assert spec["slides"][0]["bullets"] == ["Shortened"]  # slide 2 = first content slide
+    assert spec["slides"][3]["table"]["columns"][0] == "Risk"  # slide 5 = fourth content slide
+    assert spec["subtitle"] == "Q3 review, revised"
+    bad = call(client, "revise_office_file", {
+        "document_id": doc_id, "changes": [{"op": "replace", "path": "/slide/9/title", "value": "x"}]
+    })
+    assert bad["isError"] is True and "slide 5 = /slide/5" in bad["content"][0]["text"]

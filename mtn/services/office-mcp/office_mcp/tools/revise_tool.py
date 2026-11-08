@@ -19,9 +19,9 @@ REVISE_DESCRIPTION = (
     "next version (v2, v3, ...); earlier versions are kept unchanged. Pass document_id from the "
     "create result and either changes (a list of {op: add|replace|remove, path, value} edits to "
     "the stored content) or content (the complete new content, same fields as the create tool). "
-    "Paths: /sections/N for Word, /slides/N for PowerPoint (slides exclude the title slide, so "
-    "visible slide 2 is /slides/0 and slide 5 is /slides/3), /sheets/N for Excel; e.g. replace "
-    "/slides/0/bullets or add /slides/3/table. Call get_generation_status first if unsure of the "
+    "Paths: /sections/N for Word, /sheets/N for Excel. For PowerPoint use the slide number the "
+    "user sees, /slide/N (the title slide is slide 1): e.g. replace /slide/2/bullets or add "
+    "/slide/5/table; the create result lists every slide's number. Call get_generation_status if unsure of the "
     "structure. Files uploaded by employees cannot be revised yet."
 )
 REVISE_SCHEMA = {
