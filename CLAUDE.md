@@ -69,6 +69,37 @@ via `mammoth`, `pdfjs-dist`, `xlsx`.
 Kubernetes charts; `rag.yml` runs RAG + pgvector standalone. OpenTelemetry/Langfuse observability
 via `otel/` and the langfuse-fanout compose files.
 
+## Upgrading the upstream base
+
+The local api image is three layers: **upstream LibreChat** (pinned by digest) → **branding**
+(`mtn/branding/Dockerfile`) → **core-deviation overlay** (`mtn/deploy/core.Dockerfile`, the backend
+build of our MTN core changes). The overlay replaces built files, so it is only valid on the exact
+upstream build our source is based on.
+
+- **Current base:** commit `f4154b649efa37e1345ccc517a4d8d1ed2178c82` (`v0.8.9-rc1`), image
+  `registry.librechat.ai/librechat-ai/librechat-dev@sha256:9625652b9d9ac9fbf9ff3505fc34770f822c7aa079f58d06b4e66eed2dc93aeb`.
+  Pinned in `mtn/branding/Dockerfile` (`ARG BASE_IMAGE`) and the local `docker-compose.override.yml`.
+- **Guard:** upstream images carry no commit label, so `core.Dockerfile` checks the base image's
+  `package.json` version and the SHA-256 of 392 upstream source files against
+  `mtn/deploy/base-fingerprint.sha256`. Any other upstream build fails the overlay build.
+
+To move to a new upstream commit:
+
+1. Merge or rebase onto the new upstream commit on a branch; resolve conflicts in the MTN core
+   deviations (decisions log); run the tests in each touched workspace.
+2. Find the upstream image built from **that** commit (its creation time follows the commit) and
+   pull it by digest: `docker pull registry.librechat.ai/librechat-ai/librechat-dev@sha256:<digest>`.
+3. Confirm it is that commit: `mtn/scripts/base-fingerprint.sh <commit>` regenerates the
+   fingerprint, then build the overlay. If the check fails, the image is not that commit; do
+   not proceed (or build the full image from source in CI instead).
+4. Update the digest in `mtn/branding/Dockerfile` and the override, plus `BASE_COMMIT` /
+   `BASE_VERSION` in `core.Dockerfile`, and this section.
+5. Rebuild in order: `docker build -t mtn-librechat:local mtn/branding`, then
+   `npm run build:data-provider && npm run build:api`, then `docker compose build api`.
+6. Re-run the Phase 4 checks (file card, reload, second-user isolation) before committing.
+
+Production never uses the overlay: CI builds the whole image from source.
+
 ## Development commands
 
 Install (root): `npm ci`
@@ -255,6 +286,10 @@ Record every deviation from upstream here with rationale, so future upstream mer
     files, so access checks, per-user limits and the Files list apply.
   - Logic lives in `packages/api`; `/api` has wiring only.
   - Upstream proposal: `docs/mtn/upstream-proposal-mcp-file-outputs.md`.
+- _2026-11-08_ — **Upstream base pinned by digest + overlay guard.** The local api image is
+  upstream (digest-pinned, commit `f4154b649`) → branding → core-deviation overlay. The overlay
+  build fails unless the base image's sources match `mtn/deploy/base-fingerprint.sha256`. Upgrade
+  procedure: "Upgrading the upstream base" above.
 - _2026-11-08_ — **Local dev:** `SCHEDULES_SINGLE_PROCESS=true` in `.env` (single API replica, no
   Redis) so the schedules engine arms. Not for multi-replica deployments.
 

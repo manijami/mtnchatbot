@@ -4,3 +4,4 @@
 !packages/api/dist
 !api/server/controllers/agents/callbacks.js
 !api/server/services/Files/process.js
+!mtn/deploy/base-fingerprint.sha256

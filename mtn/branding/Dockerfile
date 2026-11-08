@@ -11,7 +11,9 @@
 #
 # Build (from repo root):  docker compose build api
 # Rebuild whenever the base image is updated (`docker compose pull` then build).
-ARG BASE_IMAGE=registry.librechat.ai/librechat-ai/librechat-dev:latest
+# Upstream LibreChat built from our base commit f4154b649 (pinned by digest; see CLAUDE.md
+# "Upgrading the upstream base").
+ARG BASE_IMAGE=registry.librechat.ai/librechat-ai/librechat-dev@sha256:9625652b9d9ac9fbf9ff3505fc34770f822c7aa079f58d06b4e66eed2dc93aeb
 FROM ${BASE_IMAGE}
 
 ARG APP_TITLE="MTN Employee AI"
