@@ -310,6 +310,18 @@ Record every deviation from upstream here with rationale, so future upstream mer
   Switchyard routing chat turns across Groq and NVIDIA models) on branch `mtn/router-switchyard`,
   dev/demo only with synthetic data. Phase 3 items recorded above (Code Interpreter, managed
   stores, Redis streams, NIM self-hosting) stay on the list for when the phase resumes.
+- _2026-11-08_ — **Model router demo (approved plan).** NVIDIA NeMo Switchyard (Apache-2.0,
+  pre-alpha; standalone server is demo-only upstream) routes each "MTN Smart Chat" turn across
+  three tiers with a `llm_classifier` **custom** route: fast = Groq `gpt-oss-20b`, balanced =
+  Groq `gpt-oss-120b`, capable = NVIDIA Nemotron 3 Ultra; judge = Groq `gpt-oss-20b`. Built from
+  pinned `v0.3.0` (`336196f6`) with one local patch so custom mode records the judge's verdict and
+  a short reason (`docs/mtn/upstream-proposal-switchyard-reason.md`). A small sidecar
+  (`router-lens`) proxies LibreChat → Switchyard to add an optional routing footer
+  (`SHOW_ROUTING_FOOTER`, default off) and a live decision feed. Switchyard publishes no ports;
+  Prometheus is published on `127.0.0.1:9091` only for the local Grafana. The MTN Document
+  Assistant stays pinned to Nemotron Ultra. Dev/demo only, synthetic data only; no LibreChat
+  core change. Cost is shown as a relative index (100 = every turn on the capable tier) from
+  published list prices, not in currency.
 - _2026-11-08_ — **Local dev:** `SCHEDULES_SINGLE_PROCESS=true` in `.env` (single API replica, no
   Redis) so the schedules engine arms. Not for multi-replica deployments.
 
