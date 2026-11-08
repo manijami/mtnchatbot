@@ -306,6 +306,8 @@ export default [
         'error',
         {
           allow: [
+            // MTN fork: classes from client/src/mtn/mtn-layout.css (MTN layout, interface.mtnLayout)
+            'mtn-*',
             // client/src/style.css and the library's component CSS
             'icon-*',
             'hover-button',

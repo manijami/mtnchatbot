@@ -98,7 +98,14 @@ function HelpSubmenu({
   );
 }
 
-function AccountSettings({ collapsed = false }: { collapsed?: boolean }) {
+function AccountSettings({
+  collapsed = false,
+  subtitle,
+}: {
+  collapsed?: boolean;
+  /** MTN fork: optional second line under the name (the MTN layout's user card). */
+  subtitle?: string;
+}) {
   const localize = useLocalize();
   const { user, logout } = useAuthContext();
   const { data: startupConfig } = useGetStartupConfig();
@@ -132,6 +139,7 @@ function AccountSettings({ collapsed = false }: { collapsed?: boolean }) {
         {!collapsed && (
           <div className="text-text-primary grow overflow-hidden text-start text-ellipsis whitespace-nowrap">
             {user?.name ?? user?.username ?? localize('com_nav_user')}
+            {subtitle && <span className="text-text-secondary block text-xs">{subtitle}</span>}
           </div>
         )}
       </Menu.MenuButton>

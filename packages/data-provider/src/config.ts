@@ -3229,6 +3229,8 @@ export const interfaceSchema = z
     buildInfo: z.boolean().optional(),
     /** Allows Lia, the welcome screen mascot. Users still opt in from Settings. */
     mascot: z.boolean().optional(),
+    /** MTN fork: MTN layout (top bar, MTN sidebar, Office cards). Default off = upstream layout. */
+    mtnLayout: z.boolean().optional(),
     remoteAgents: z
       .object({
         use: z.boolean().optional(),

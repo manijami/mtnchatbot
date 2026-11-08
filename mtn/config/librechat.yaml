@@ -92,6 +92,17 @@ interface:
         appearance:
           fontFamily: '"MTN Brighter Sans", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif'
 
+  # MTN layout (top bar, MTN sidebar, Office cards): MTN fork flag, default false upstream.
+  mtnLayout: true
+  # No agents marketplace for now (MTN assistants are the model specs below).
+  marketplace:
+    use: false
+  # Shared links off until MTN sets a sharing policy (decision 2026-11-08).
+  sharedLinks:
+    create: false
+    share: false
+    public: false
+
   # Upstream default interface settings (unchanged from Phase 0)
   fileSearch: true
   modelSelect: true

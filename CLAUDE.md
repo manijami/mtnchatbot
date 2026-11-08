@@ -347,6 +347,32 @@ Record every deviation from upstream here with rationale, so future upstream mer
   `HELP_AND_FAQ_URL`; "Internal workspace" is a static label. Stage C adds an "Open in Document
   Assistant" chip to Smart Chat's Office reply (client-side; starts a new Document Assistant chat
   with the request pre-filled).
+- _2026-11-08_ — **UI/UX approach B approved; decisions for the build:**
+  - Assistants nav lists the MTN assistants (model specs); agents marketplace hidden
+    (`interface.marketplace.use: false`).
+  - **Shared links off** (`interface.sharedLinks` create/share/public `false`) until MTN sets a
+    sharing policy: a shared link is a public snapshot, and file downloads in it would not work
+    for other people anyway.
+  - Dark mode top bar: black with a yellow bottom line, logo on a yellow tile.
+  - Office icons: generic DOCX/PPTX/XLSX/PDF; official ones only if supplied with approval.
+  - Placeholders: Document Assistant "What would you like to create?"; Smart Chat "Ask anything
+    about your work…". Card headline from the tool result ("Your <file type> is ready."), note
+    "Sample content: check before sharing.", "Needs review" + reason when validation flags anything.
+  - Quick-create chips ("Word document", "PowerPoint deck", "Excel workbook") on the empty screen
+    and in the "+" menu only; at most 3 follow-ups, suggested by office-mcp per file type.
+  - User card role: static "MTN employee" until SSO provides a title.
+  - Build order: 1 shell → 3 file card → 2 header/composer → 5 chips → 4 preview → 6 → 7.
+- _2026-11-08_ — **Step 1 (app shell) implementation.** `client/src/mtn/` (top bar, sidebar, styles,
+  tests). Upstream touch points, all inert while `mtnLayout` is off: `configSchema`
+  (`interface.mtnLayout`), the interface loader, `Root.tsx` (renders the top bar, passes the flag),
+  `UnifiedSidebar.tsx` (MTN sidebar instead of the rail; upstream drawer id/behaviour kept),
+  `AccountSettings.tsx` (optional `subtitle`), one `mtn-*` entry in the lint class allow-list,
+  translation keys `com_mtn_*`. The chat list, search, panels and account menu are upstream's;
+  every other rail panel stays reachable under "More tools".
+- _2026-11-08_ — **Local dev finding:** the user-level npm config sets `legacy-peer-deps=true`, so
+  host installs skip peer dependencies (`rc-input-number`, `@radix-ui/react-slot`, and likely the
+  earlier `winston-daily-rotate-file` gap). Install with
+  `npm ci --legacy-peer-deps=false` for local tests; Docker/CI builds are unaffected.
 - _2026-11-08_ — **CORE DEVIATION #2 — Office preview route** (approved, Stage C):
   `GET /api/files/:id/preview`. Returns rendered pages (PNG; PDF where useful) for Word/PowerPoint
   files and a JSON table summary for Excel, produced by office-mcp next to each version. Conditions:

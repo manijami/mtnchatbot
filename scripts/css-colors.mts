@@ -34,6 +34,8 @@ export interface AllowedRule {
 export const CSS_COLOR_ALLOWED_RULES: Record<string, AllowedRule[]> = {
   'client/src/mobile.css': [{ selector: '.azure-bg-color' }],
   'client/src/style.css': [{ selector: 'select', property: 'background-image' }],
+  // MTN fork: the MTN brand constants (allowlist.md entry 10); the rest of the file is checked.
+  'client/src/mtn/mtn-layout.css': [{ selector: ':root' }],
 };
 
 const SKIPPED_DIRECTORIES = new Set(['node_modules', 'dist', 'locales']);
