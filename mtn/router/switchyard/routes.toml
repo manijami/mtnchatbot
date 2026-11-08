@@ -1,0 +1,105 @@
+# MTN model router demo — NVIDIA NeMo Switchyard routes. DEV/DEMO ONLY, synthetic data only.
+# Keys are never in this file: api_key_env names variables passed from .env by compose.
+schema_version = 1
+
+# Answer clients (generous deadlines; NVIDIA's hosted throughput varies).
+# Groq serves the fast and balanced tiers and the primary judge. v0.3.0 keys execution by model id,
+# so the judge (gpt-oss-20b, like the fast tier) must share this client and its deadline. Groq
+# streams far faster than 45 s; a judge failure stops the request and router-lens retries it on
+# the backup-judge route.
+[llm_clients.groq]
+format = "openai_chat"
+base_url = "https://api.groq.com/openai/v1"
+api_key_env = "GROQ_API_KEY"
+timeout_ms = 45000
+
+[llm_clients.nvidia]
+format = "openai_chat"
+base_url = "https://integrate.api.nvidia.com/v1"
+api_key_env = "NVIDIA_API_KEY"
+timeout_ms = 240000
+
+# Backup judge client: a short deadline of its own (its model id differs from every tier).
+[llm_clients.nvidia_judge]
+format = "openai_chat"
+base_url = "https://integrate.api.nvidia.com/v1"
+api_key_env = "NVIDIA_API_KEY"
+timeout_ms = 4000
+max_retries = 0
+
+# Tiers.
+[targets.fast]
+id = "openai/gpt-oss-20b"
+llm_client = "groq"
+
+[targets.balanced]
+id = "openai/gpt-oss-120b"
+llm_client = "groq"
+
+[targets.capable]
+id = "nvidia/nemotron-3-ultra-550b-a55b"
+llm_client = "nvidia"
+
+# Judges (not routing destinations). Bolt answers in content with thinking off.
+[targets.judge_groq]
+id = "openai/gpt-oss-20b"
+llm_client = "groq"
+
+[targets.judge_nvidia]
+id = "nvidia/nemotron-3.5-bolt-e4b"
+llm_client = "nvidia_judge"
+extra_body = { chat_template_kwargs = { enable_thinking = false } }
+
+[routes.smart]
+id = "mtn-smart"
+type = "llm_classifier"
+mode = "custom"
+default_target = "balanced"
+max_output_tokens = 1024
+tool_calling = false
+prompt = """
+You route employee chat requests to one of three model tiers. Choose the cheapest tier that will answer well.
+- fast: greetings, thanks, small talk, one-line facts, rewording or shortening text the user provides, simple formatting.
+- balanced: everyday work questions that need explanation: policies and processes, how-to steps, drafting a normal email or summary, comparing two options.
+- capable: multi-step analysis or planning, maths or data reasoning, long structured documents, ambiguous or high-stakes questions, anything needing careful judgment.
+Give a reason of at most 12 words that names what the request needs.
+"""
+response_schema = '''{"type": "object", "properties": {"decision": {"type": "object", "properties": {"target": {"type": "string", "enum": ["fast", "balanced", "capable"]}, "reason": {"type": "string", "description": "At most 12 words naming what the request needs."}}, "required": ["target", "reason"], "additionalProperties": false}}, "required": ["decision"], "additionalProperties": false}'''
+
+[routes.smart.models]
+judge = ["judge_groq"]
+fast = ["fast", "balanced"]
+balanced = ["balanced", "capable"]
+capable = ["capable", "balanced"]
+any = ["fast", "balanced", "capable"]
+
+[routes.smart.policy]
+type = "target_selector"
+selector = "/decision/target"
+
+[routes.smart_backup_judge]
+id = "mtn-smart-backup-judge"
+type = "llm_classifier"
+mode = "custom"
+default_target = "balanced"
+max_output_tokens = 1024
+tool_calling = false
+prompt = """
+You route employee chat requests to one of three model tiers. Choose the cheapest tier that will answer well.
+- fast: greetings, thanks, small talk, one-line facts, rewording or shortening text the user provides, simple formatting.
+- balanced: everyday work questions that need explanation: policies and processes, how-to steps, drafting a normal email or summary, comparing two options.
+- capable: multi-step analysis or planning, maths or data reasoning, long structured documents, ambiguous or high-stakes questions, anything needing careful judgment.
+Give a reason of at most 12 words that names what the request needs.
+"""
+response_schema = '''{"type": "object", "properties": {"decision": {"type": "object", "properties": {"target": {"type": "string", "enum": ["fast", "balanced", "capable"]}, "reason": {"type": "string", "description": "At most 12 words naming what the request needs."}}, "required": ["target", "reason"], "additionalProperties": false}}, "required": ["decision"], "additionalProperties": false}'''
+
+[routes.smart_backup_judge.models]
+judge = ["judge_nvidia"]
+fast = ["fast", "balanced"]
+balanced = ["balanced", "capable"]
+capable = ["capable", "balanced"]
+any = ["fast", "balanced", "capable"]
+
+[routes.smart_backup_judge.policy]
+type = "target_selector"
+selector = "/decision/target"
