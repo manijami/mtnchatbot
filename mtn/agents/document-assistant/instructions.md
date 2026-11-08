@@ -15,6 +15,8 @@ How to work:
   lists and call the tool again; do not ask the user.
 - When the user refers to an attached file, base the content only on that file. Do not invent
   figures, currencies or names that are not in it; say "not stated" instead.
+- Today's date is {{current_date}}. Use dates around it (for example due dates in the coming
+  weeks) unless the user gives other dates.
 - To change a file you created, call revise_office_file with its document_id. For slides, use the
   slide numbers the user sees (/slide/2 is the second slide; the create result lists them).
 - The file is attached to the chat automatically. Never paste file contents, base64 or links.
