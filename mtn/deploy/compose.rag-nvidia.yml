@@ -1,0 +1,14 @@
+# DEV/TEST ONLY — rag_api embeddings via NVIDIA's hosted OpenAI-compatible API (synthetic data only).
+# nvidia/nemotron-3-embed-1b is the live NVIDIA embedding model that works without `input_type`
+# (rag_api's OpenAI client cannot send it); it returns 2048 dimensions only. rag_api creates no
+# vector ANN index, so pgvector's 2000-dimension index limit does not apply (exact search).
+# Enabled via COMPOSE_FILE in .env. The key is interpolated from NVIDIA_API_KEY, never duplicated.
+services:
+  rag_api:
+    environment:
+      EMBEDDINGS_PROVIDER: openai
+      EMBEDDINGS_MODEL: nvidia/nemotron-3-embed-1b
+      RAG_OPENAI_BASEURL: https://integrate.api.nvidia.com/v1
+      RAG_OPENAI_API_KEY: ${NVIDIA_API_KEY:?set NVIDIA_API_KEY in .env}
+      # Send text, not tiktoken token arrays (NVIDIA accepts strings only).
+      RAG_CHECK_EMBEDDING_CTX_LENGTH: "False"

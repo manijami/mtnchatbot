@@ -114,11 +114,31 @@ endpoints:
       titleConvo: true
       titleModel: 'openai/gpt-oss-20b'
       modelDisplayLabel: 'Groq'
+    # DEV/TEST ONLY — NVIDIA-hosted API (build.nvidia.com) is not MTN-approved. Synthetic data only.
+    # Nemotron returns its thinking in `reasoning_content`, which LibreChat shows in the
+    # reasoning panel, never in the answer text.
+    - name: 'nvidia'
+      apiKey: '${NVIDIA_API_KEY}'
+      baseURL: 'https://integrate.api.nvidia.com/v1'
+      models:
+        default:
+          - 'nvidia/nemotron-3-ultra-550b-a55b'
+          - 'meta/muse-glimmer-30b'
+        fetch: false
+      titleConvo: true
+      titleEndpoint: 'groq'
+      titleModel: 'openai/gpt-oss-20b'
+      modelDisplayLabel: 'NVIDIA'
 
-# Groq's chat API rejects native PDF parts (400), so deliver PDFs as extracted text.
+# Groq's and NVIDIA's chat APIs reject native PDF parts (400), so deliver PDFs as extracted text.
 fileConfig:
   endpoints:
     groq:
+      defaultLLMDeliveryPath:
+        overrides:
+          'application/pdf': 'text'
+    # NVIDIA's chat API also rejects native PDF parts (400 "did not match any variant").
+    nvidia:
       defaultLLMDeliveryPath:
         overrides:
           'application/pdf': 'text'
