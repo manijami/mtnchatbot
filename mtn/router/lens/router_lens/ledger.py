@@ -11,7 +11,10 @@ import time
 from collections import deque
 from dataclasses import asdict, dataclass
 
-TIERS = ("fast", "balanced", "capable")
+TIERS = ("fast", "balanced", "capable", "vision")
+# Vision turns have no text-tier alternative (the capable tier cannot read images), so they are
+# counted but left out of the cost index.
+COST_TIERS = ("fast", "balanced", "capable")
 LATENCY_BUCKETS = (1, 2, 5, 10, 20, 30, 45, 60, 90, 120)
 
 
@@ -89,8 +92,9 @@ class Ledger:
                     buckets[i] += 1
             buckets[-1] += 1
             self.latency_sum[tier] += seconds
-            self.routed_cost += self._price(decision.model, decision.prompt_tokens, decision.completion_tokens)
-            if self.capable_model:
+            if tier in COST_TIERS:
+                self.routed_cost += self._price(decision.model, decision.prompt_tokens, decision.completion_tokens)
+            if self.capable_model and tier in COST_TIERS:
                 self.baseline_cost += self._price(
                     self.capable_model, decision.prompt_tokens, decision.completion_tokens
                 )
@@ -119,10 +123,11 @@ class Ledger:
 
     def summary(self) -> dict:
         total = sum(self.turns.values())
+        text_total = sum(self.turns[t] for t in COST_TIERS)
         return {
             "turns": dict(self.turns),
             "total": total,
-            "capable_share": round(100 * self.turns["capable"] / total, 1) if total else None,
+            "capable_share": round(100 * self.turns["capable"] / text_total, 1) if text_total else None,
             "cost_index": self.cost_index(),
             "backup_judge_turns": self.backup_judge_turns,
             "errors": self.errors,

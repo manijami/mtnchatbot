@@ -250,16 +250,45 @@ def _content(response):
     return text
 
 
-def test_image_on_the_latest_turn_gets_a_friendly_reply_without_calling_the_router(fake):
-    client, ledger = make(fake)
-    r = client.post("/v1/chat/completions", json={"model": "mtn-smart", "stream": True, "messages": [
+VISION_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+
+
+def image_turn(client, stream=True):
+    return client.post("/v1/chat/completions", json={"model": "mtn-smart", "stream": stream, "messages": [
         {"role": "user", "content": [{"type": "text", "text": "What colour is this?"}, IMAGE_PART]}]})
+
+
+def test_image_turns_go_to_the_vision_tier_without_a_judge(fake):
+    fake.set("mtn-smart-vision", headers={"x-model-router-selected-model": VISION_MODEL},
+             body=sse(chunk("Yellow."), chunk(finish="stop"), chunk(usage={"prompt_tokens": 900, "completion_tokens": 5})))
+    client, ledger = make(fake, show_footer=True, model_tiers={**TIERS, VISION_MODEL: "vision"})
+    r = image_turn(client)
+    assert [q["model"] for q in fake.requests] == ["mtn-smart-vision"]
+    assert fake.requests[0]["messages"][0]["content"][1]["type"] == "image_url"
+    text = _content(r)
+    assert text.startswith("Yellow.") and f"Routed to {VISION_MODEL} · vision tier · image attached" in text
+    d = ledger.recent[0]
+    assert (d.tier, d.judge_route, d.status) == ("vision", "none", "ok")
+    summary = ledger.summary()
+    assert summary["turns"]["vision"] == 1 and summary["capable_share"] is None and summary["cost_index"] is None
+
+
+def test_vision_failure_is_a_friendly_message_not_a_raw_error(fake):
+    fake.set("mtn-smart-vision", status=400, body={"error": {"message": "image too large"}})
+    client, ledger = make(fake)
+    r = image_turn(client)
     assert r.status_code == 200
-    assert "can't read images" in _content(r)
-    assert r.text.rstrip().endswith("data: [DONE]")
+    assert "couldn't read your image" in _content(r) and "too large" not in r.text
+    assert [q["model"] for q in fake.requests] == ["mtn-smart-vision"]  # no retry on text tiers
+    assert ledger.summary()["errors"] == 1
+
+
+def test_image_turn_without_a_vision_tier_gets_a_polite_refusal(fake):
+    client, ledger = make(fake, vision_route=None)
+    r = image_turn(client, stream=False)
+    assert "can't read images" in r.json()["choices"][0]["message"]["content"]
     assert fake.requests == []
-    assert ledger.recent[0].status == "handled" and ledger.summary()["handled"] == 1
-    assert ledger.summary()["errors"] == 0
+    assert ledger.recent[0].status == "handled"
 
 
 def test_images_in_earlier_turns_become_a_text_note(fake):

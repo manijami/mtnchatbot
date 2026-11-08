@@ -15,7 +15,7 @@
   header .sub { color:#BDBDBD; font-size:13px; margin-left:auto; }
   .bar { height:4px; background:var(--yellow); }
   main { padding:18px 24px; max-width:1200px; margin:0 auto; }
-  .tiles { display:grid; grid-template-columns:repeat(5, minmax(120px,1fr)); gap:12px; margin-bottom:16px; }
+  .tiles { display:grid; grid-template-columns:repeat(6, minmax(110px,1fr)); gap:12px; margin-bottom:16px; }
   .tile { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
   .tile .k { font-size:12px; color:var(--grey); text-transform:uppercase; letter-spacing:.04em; }
   .tile .v { font-size:28px; font-weight:700; margin-top:4px; }
@@ -28,7 +28,7 @@
   tr.new td { animation:flash 1.6s ease-out; }
   @keyframes flash { from { background:var(--tint); } to { background:#fff; } }
   .pill { display:inline-block; border-radius:999px; padding:2px 10px; font-size:12px; font-weight:700; color:#fff; }
-  .pill.fast { background:var(--fast); } .pill.balanced { background:var(--balanced); } .pill.capable { background:var(--capable); }
+  .pill.fast { background:var(--fast); } .pill.balanced { background:var(--balanced); } .pill.capable { background:var(--capable); } .pill.vision { background:#00678A; }
   .pill.error { background:#C62828; } .pill.handled { background:#555; } .pill.timeout { background:#8A4B00; }
   .muted { color:var(--grey); } .num { text-align:right; white-space:nowrap; }
   .hidden-prompts .prompt { filter:blur(5px); }
@@ -44,8 +44,9 @@
     <div class="tile"><div class="k">Fast</div><div class="v" id="t-fast">0</div><div class="note">Groq gpt-oss-20b</div></div>
     <div class="tile"><div class="k">Balanced</div><div class="v" id="t-balanced">0</div><div class="note">Groq gpt-oss-120b</div></div>
     <div class="tile"><div class="k">Capable</div><div class="v" id="t-capable">0</div><div class="note">NVIDIA Nemotron 3 Ultra</div></div>
-    <div class="tile"><div class="k">% on capable</div><div class="v" id="t-share">–</div><div class="note">of routed turns</div></div>
-    <div class="tile cost"><div class="k">Relative cost</div><div class="v" id="t-cost">–</div><div class="note">100 = every turn on capable · list prices · judge included</div></div>
+    <div class="tile"><div class="k">Vision</div><div class="v" id="t-vision">0</div><div class="note">NVIDIA Nemotron 3 Nano Omni · image turns</div></div>
+    <div class="tile"><div class="k">% on capable</div><div class="v" id="t-share">–</div><div class="note">of routed text turns</div></div>
+    <div class="tile cost"><div class="k">Relative cost</div><div class="v" id="t-cost">–</div><div class="note">100 = every text turn on capable · list prices · judge included · vision turns excluded</div></div>
   </section>
   <div class="controls">
     <span id="status">Connecting…</span>
@@ -64,7 +65,7 @@
     const tr = document.createElement('tr');
     if (fresh) tr.className = 'new';
     const tier = { ok: d.tier, stalled: d.tier, handled: 'handled', timeout: 'timeout' }[d.status] || 'error';
-    const tierLabel = tier + (d.verdict_tier && d.verdict_tier !== d.tier ? ` <span class="muted">(judge: ${text(d.verdict_tier)})</span>` : '');
+    const tierLabel = (tier === 'vision' ? 'vision tier' : tier) + (d.verdict_tier && d.verdict_tier !== d.tier ? ` <span class="muted">(judge: ${text(d.verdict_tier)})</span>` : '');
     const reasonNote = d.reason_source === 'judge' ? '' : d.reason_source === 'guard' ? ' <span class="muted">(answered by router-lens)</span>'
       : d.status === 'stalled' ? ' <span class="muted">(stalled, cut short)</span>'
       : ` <span class="muted">(${d.reason_source === 'fail_open' ? 'fallback' : 'rule'})</span>`;
@@ -76,7 +77,7 @@
     return tr;
   }
   function summary(s) {
-    for (const t of ['fast', 'balanced', 'capable']) document.getElementById('t-' + t).textContent = s.turns[t];
+    for (const t of ['fast', 'balanced', 'capable', 'vision']) document.getElementById('t-' + t).textContent = s.turns[t];
     document.getElementById('t-share').textContent = s.capable_share == null ? '–' : s.capable_share + '%';
     document.getElementById('t-cost').textContent = s.cost_index == null ? '–' : Math.round(s.cost_index);
   }

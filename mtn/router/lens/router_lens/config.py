@@ -18,6 +18,7 @@ TIER_RULES = {
     "fast": "greeting, thanks or quick rewording",
     "balanced": "everyday work question",
     "capable": "multi-step analysis or careful judgement",
+    "vision": "image attached",
 }
 
 
@@ -26,6 +27,7 @@ class Settings:
     switchyard_url: str = "http://switchyard:4000"
     primary_route: str = "mtn-smart"
     backup_route: str = "mtn-smart-backup-judge"
+    vision_route: str | None = "mtn-smart-vision"  # None: image turns get a polite refusal
     show_footer: bool = False
     redact_prompts: bool = True
     api_port: int = 8080
@@ -44,13 +46,15 @@ def load_settings() -> Settings:
         os.environ.get(
             "ROUTER_LENS_MODEL_TIERS",
             '{"openai/gpt-oss-20b": "fast", "openai/gpt-oss-120b": "balanced", '
-            '"nvidia/nemotron-3-ultra-550b-a55b": "capable"}',
+            '"nvidia/nemotron-3-ultra-550b-a55b": "capable", '
+            '"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": "vision"}',
         )
     )
     return Settings(
         switchyard_url=os.environ.get("SWITCHYARD_URL", "http://switchyard:4000").rstrip("/"),
         primary_route=os.environ.get("ROUTER_PRIMARY_ROUTE", "mtn-smart"),
         backup_route=os.environ.get("ROUTER_BACKUP_ROUTE", "mtn-smart-backup-judge"),
+        vision_route=os.environ.get("ROUTER_VISION_ROUTE", "mtn-smart-vision") or None,
         show_footer=_flag("SHOW_ROUTING_FOOTER", False),
         redact_prompts=_flag("REDACT_PROMPTS", True),
         api_port=int(os.environ.get("ROUTER_LENS_API_PORT", "8080")),

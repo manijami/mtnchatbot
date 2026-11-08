@@ -40,6 +40,12 @@ llm_client = "groq"
 id = "nvidia/nemotron-3-ultra-550b-a55b"
 llm_client = "nvidia"
 
+# Vision tier: the only pool model that reads images. router-lens sends image turns straight to
+# the mtn-smart-vision route (no judge); the text tiers never receive image parts.
+[targets.vision]
+id = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+llm_client = "nvidia"
+
 # Judges (not routing destinations). Bolt answers in content with thinking off.
 [targets.judge_groq]
 id = "openai/gpt-oss-20b"
@@ -103,3 +109,9 @@ any = ["fast", "balanced", "capable"]
 [routes.smart_backup_judge.policy]
 type = "target_selector"
 selector = "/decision/target"
+
+# Image turns (chosen by router-lens before any judge call).
+[routes.vision]
+id = "mtn-smart-vision"
+type = "passthrough"
+target = "vision"

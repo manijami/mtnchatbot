@@ -79,7 +79,8 @@ def format_latency(ms: int) -> str:
 
 
 def footer_text(model: str, tier: str, reason: str, latency_ms: int) -> str:
-    return f"\n\n*Routed to {model} · {tier} · {reason} · {format_latency(latency_ms)}*"
+    label = "vision tier" if tier == "vision" else tier
+    return f"\n\n*Routed to {model} · {label} · {reason} · {format_latency(latency_ms)}*"
 
 
 class TurnState:
@@ -130,17 +131,20 @@ def build_app(settings: Settings, ledger: Ledger, client: httpx.AsyncClient | No
 
         guards.strip_history_images(messages)
         latest = guards.latest_user(messages)
-        if latest and guards.has_image(latest):
+        vision = bool(latest and guards.has_image(latest))
+        if vision and not settings.vision_route:
             return handled(guards.IMAGE_REPLY, "image attached")
-        office_kind = guards.office_request(last_user_text(messages))
+        office_kind = None if vision else guards.office_request(last_user_text(messages))
         if office_kind:
             return handled(guards.OFFICE_REPLY.format(kind=office_kind), f"{office_kind} request")
 
-        judge_route = "primary"
+        # Image turns skip the judge: only the vision tier can read them.
+        judge_route = "none" if vision else "primary"
+        route = settings.vision_route if vision else settings.primary_route
         try:
-            upstream = await asyncio.wait_for(open_upstream(body, settings.primary_route), settings.first_byte_timeout)
+            upstream = await asyncio.wait_for(open_upstream(body, route), settings.first_byte_timeout)
             retry = upstream.status_code in RETRYABLE
-            if retry:
+            if retry or (vision and upstream.status_code != 200):
                 await upstream.aread()
                 await upstream.aclose()
         except asyncio.TimeoutError:
@@ -148,6 +152,9 @@ def build_app(settings: Settings, ledger: Ledger, client: httpx.AsyncClient | No
             return handled(guards.TIMEOUT_REPLY, f"no answer within {int(settings.first_byte_timeout)} s", "timeout")
         except httpx.HTTPError:
             retry = True
+        if vision and (retry or upstream.status_code != 200):
+            # Never show a provider's raw error for an image turn.
+            return handled(guards.VISION_FAILED_REPLY, "vision tier unavailable", "error")
         if retry:
             judge_route = "backup"
             try:

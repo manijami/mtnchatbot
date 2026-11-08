@@ -21,6 +21,11 @@
       "input": 0.075,
       "output": 0.3,
       "source": "No published list price found; priced as Groq gpt-oss-20b (proxy) for the backup judge."
+    },
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": {
+      "input": 0.0,
+      "output": 0.0,
+      "source": "Vision tier. No published list price found; not part of the cost index (vision turns are excluded)."
     }
   },
   "capable_model": "nvidia/nemotron-3-ultra-550b-a55b"

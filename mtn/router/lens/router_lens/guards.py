@@ -1,8 +1,9 @@
 """Turn guards: answers router-lens gives itself, before or instead of a routed model call.
 
-- Image turns: no model in the routing pool reads images (Groq gpt-oss and NVIDIA Nemotron 3 Ultra
-  both reject image parts), so the latest image turn gets a friendly answer and images in
-  earlier messages are replaced by a short note so one image does not break the conversation.
+- Image turns: the text tiers (Groq gpt-oss, NVIDIA Nemotron 3 Ultra) reject image parts, so
+  router-lens sends the latest image turn to the vision tier, or answers it politely when the
+  vision tier is off or fails. Images in earlier messages become a short note so one image
+  does not break the rest of the conversation.
 - Office file requests: Smart Chat has no Office tools; it says how to switch to the MTN
   Document Assistant instead of producing a long text "deck".
 - Slow or stalled models: callers get a clear message instead of an endless spinner.
@@ -30,6 +31,10 @@ OFFICE_REPLY = (
 TIMEOUT_REPLY = (
     "Sorry, the model is taking much longer than usual to start answering, so I stopped waiting. "
     "Please try again in a moment, or ask a shorter question."
+)
+VISION_FAILED_REPLY = (
+    "Sorry, I couldn't read your image just now. Please try again in a moment, or describe "
+    "what's in it and I'll help from there."
 )
 STALLED_NOTE = "\n\n*The answer was cut short because the model stopped responding. Please try again.*"
 
