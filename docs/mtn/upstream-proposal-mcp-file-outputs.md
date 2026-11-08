@@ -78,6 +78,15 @@ behaviour.
   emits it with the same attachment events as tool images. The loop does not `return`, so image
   artifacts (such as previews) in the same result are still processed.
 
+## Subagents
+
+A subagent's tool calls run through the parent's `ON_TOOL_EXECUTE` handler, so the same policy
+(`MCPManager.callTool`) and the same tool-end callback apply: files are delivered the same way.
+The child run reports its own `run_id`, so the attachment's `messageId` comes from
+`executionContext.rootRunId` (the parent response) when present
+(`resolveMCPFileOutputMessageId`). Bytes are stripped from the artifact before the result returns
+to the run, so no base64 reaches message history in either case.
+
 ## Tests
 
 | Suite | What it proves |
@@ -85,7 +94,8 @@ behaviour.
 | `packages/api/src/mcp/__tests__/fileOutputs.test.ts` (16) | Off by default. YAML-only. User, DB, Config-tier and plugin servers refused. The YAML snapshot beats overlays. User input is stripped. Signature, size, base64 and count checks. Filename sanitising (`../` traversal). Bytes never reach the model text. |
 | `packages/api/src/mcp/__tests__/MCPManager.test.ts` › `callTool - MCP file outputs` (4) | End to end through `callTool`: a YAML server attaches; user, Config-tier, plugin and "override adds the field" do not. |
 | `packages/api/src/files/mcpOutputs.database.spec.ts` (6, mongodb-memory-server) | Real `createFile`: owner, context and retention stored. Visible to the owner, not to another user. Bad files never reach storage. Stored object removed when the record write fails. Bytes stripped. Non-MCP tools ignored. |
-| `api/server/controllers/agents/__tests__/callbacks.spec.js` › `MCP file outputs` (2) | Wiring: an attachment is emitted with message, tool-call and conversation IDs; non-MCP tool payloads are ignored. |
+| `api/server/controllers/agents/__tests__/callbacks.spec.js` › `MCP file outputs` (3) | Wiring: an attachment is emitted with message, tool-call and conversation IDs; a subagent's file is attached to the parent response; non-MCP tool payloads are ignored. |
+| `packages/api/src/files/mcpOutputs.subagent.spec.ts` (3) | Through the real `createToolExecuteHandler`: a subagent's MCP tool call reaches the tool-end callback like a parent call, its file is assigned to `executionContext.rootRunId` (the parent response), and the result returned to the agent run carries no base64. |
 
 All 261 existing `MCPManager` tests and 51 existing callbacks tests still pass unchanged. The call
 uses `registry.getYamlServerOptions?.()`, so partial registry stubs keep working, and a missing

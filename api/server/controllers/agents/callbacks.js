@@ -42,6 +42,7 @@ const {
   writeGuarded,
   takeMCPFileOutputs,
   persistMCPFileOutput,
+  resolveMCPFileOutputMessageId,
 } = require('@librechat/api');
 const { processFileCitations } = require('~/server/services/Files/Citations');
 const { processCodeOutput, runPreviewFinalize } = require('~/server/services/Files/Code/process');
@@ -938,7 +939,8 @@ function createToolEndCallback({ req, res, artifactPromises, streamId = null, jo
               return null;
             }
             const fileMetadata = Object.assign(saved, {
-              messageId: metadata.run_id,
+              /* A subagent's files belong to the parent response message. */
+              messageId: resolveMCPFileOutputMessageId(metadata),
               toolCallId: output.tool_call_id,
               conversationId: metadata.thread_id,
             });

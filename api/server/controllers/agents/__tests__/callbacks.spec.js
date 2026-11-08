@@ -40,6 +40,7 @@ jest.mock('@librechat/api', () => ({
   isCodeArtifactToolOutput: jest.requireActual('@librechat/api').isCodeArtifactToolOutput,
   takeMCPFileOutputs: jest.requireActual('@librechat/api').takeMCPFileOutputs,
   persistMCPFileOutput: jest.requireActual('@librechat/api').persistMCPFileOutput,
+  resolveMCPFileOutputMessageId: jest.requireActual('@librechat/api').resolveMCPFileOutputMessageId,
   isCodeSessionToolName: jest.requireActual('@librechat/api').isCodeSessionToolName,
   collectToolCallIds: jest.requireActual('@librechat/api').collectToolCallIds,
   captureSubagentIdentity: jest.requireActual('@librechat/api').captureSubagentIdentity,
@@ -918,6 +919,33 @@ describe('createToolEndCallback', () => {
         }),
       );
       expect(res.write).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(output.artifact)).not.toContain(docx);
+    });
+
+    it('attaches a subagent tool call file to the parent response message', async () => {
+      res.headersSent = true;
+      const toolEndCallback = createToolEndCallback({ req, res, artifactPromises });
+      const output = mcpOutput('create_word_document_mcp_mtn-office');
+
+      await toolEndCallback(
+        { output },
+        {
+          run_id: 'child-run',
+          thread_id: 'thread789',
+          executionContext: { rootRunId: 'parent-run', hookSessionId: 'h', depth: 1, ancestry: [] },
+        },
+      );
+      const [file] = await Promise.all(artifactPromises);
+
+      expect(file).toEqual(
+        expect.objectContaining({
+          filename: 'plan.docx',
+          messageId: 'parent-run',
+          user: req.user.id,
+        }),
+      );
+      expect(res.write).toHaveBeenCalledTimes(1);
+      expect(res.write.mock.calls[0][0]).toContain('parent-run');
       expect(JSON.stringify(output.artifact)).not.toContain(docx);
     });
 

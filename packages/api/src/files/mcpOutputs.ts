@@ -50,6 +50,23 @@ export function isMCPToolName(toolName: unknown): boolean {
 }
 
 /**
+ * The message an MCP file output belongs to. A subagent's tool call carries its child run id as
+ * `run_id`, but its files belong to the parent response: the agents SDK passes that run id as
+ * `executionContext.rootRunId`, the same value the parent's own tool calls carry as `run_id`.
+ */
+export function resolveMCPFileOutputMessageId(metadata: unknown): string | undefined {
+  const meta = (metadata ?? {}) as {
+    run_id?: unknown;
+    executionContext?: { rootRunId?: unknown } | null;
+  };
+  const root = meta.executionContext?.rootRunId;
+  if (typeof root === 'string' && root.length > 0) {
+    return root;
+  }
+  return typeof meta.run_id === 'string' ? meta.run_id : undefined;
+}
+
+/**
  * Takes the MCP file outputs out of a tool artifact and strips their bytes from it in place, so
  * no base64 is retained by graph state, background-task storage or message history. Returns
  * nothing for non-MCP tools, whatever their artifact claims.
