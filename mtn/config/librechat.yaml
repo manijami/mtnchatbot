@@ -122,3 +122,41 @@ fileConfig:
       defaultLLMDeliveryPath:
         overrides:
           'application/pdf': 'text'
+
+# Phase 4 — Office document generation (mtn/services/office-mcp, mtn/deploy/compose.office.yml).
+# Reachable only on the internal `office` Docker network. `X-MTN-User-Id` makes the connection
+# per-user; office-mcp scopes every record to it. `fileOutputs` is the MTN core deviation that
+# turns returned .docx/.pptx/.xlsx resources into chat attachments (admin YAML servers only).
+mcpServers:
+  mtn-office:
+    type: streamable-http
+    url: 'http://office-mcp:8000/mcp'
+    title: 'MTN Office'
+    description: 'Creates MTN-branded Word, PowerPoint and Excel files from templates.'
+    # Operator-provided bearer token. Declared as `apiKey` (not a raw Authorization header) so
+    # startup inspection treats it as API-key auth and does not probe the server for OAuth.
+    apiKey:
+      source: admin
+      authorization_type: bearer
+      key: '${MTN_OFFICE_MCP_TOKEN}'
+    headers:
+      X-MTN-User-Id: '{{LIBRECHAT_USER_ID}}'
+    requestHeaders:
+      X-MTN-Conversation-Id: '{{LIBRECHAT_BODY_CONVERSATIONID}}'
+      X-MTN-Message-Id: '{{LIBRECHAT_BODY_MESSAGEID}}'
+    timeout: 180000
+    serverInstructions: true
+    fileOutputs:
+      enabled: true
+      mimeTypes:
+        - 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        - 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        - 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      maxBytes: 20971520
+      maxFiles: 2
+
+mcpSettings:
+  # Exempt only office-mcp:8000 from the private-address SSRF block; no allowedDomains list,
+  # so every other MCP target keeps the default protection.
+  allowedAddresses:
+    - 'office-mcp:8000'

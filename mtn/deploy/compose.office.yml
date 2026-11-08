@@ -1,0 +1,50 @@
+# MTN Phase 4 — office-mcp (template-driven Word/PowerPoint/Excel generation).
+# Enabled for local dev via COMPOSE_FILE in .env (Compose 2.17 has no `include:`):
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.override.yml:mtn/deploy/compose.office.yml
+# Relative paths resolve against the project directory (the repo root).
+services:
+  api:
+    networks:
+      - default
+      - office
+    depends_on:
+      - office-mcp
+
+  office-mcp:
+    image: mtn-office-mcp:0.1.0
+    build:
+      context: ./mtn/services/office-mcp
+      target: runtime
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      MTN_OFFICE_MCP_TOKEN: ${MTN_OFFICE_MCP_TOKEN:?set MTN_OFFICE_MCP_TOKEN in .env}
+      # 0 = keep until deleted. Set to match LibreChat's file retention when one is configured.
+      OFFICE_MCP_RETENTION_DAYS: ${OFFICE_MCP_RETENTION_DAYS:-0}
+      OFFICE_MCP_PREVIEW_IMAGE: ${OFFICE_MCP_PREVIEW_IMAGE:-false}
+    volumes:
+      - office-data:/data
+      - ./mtn/templates:/app/templates:ro
+      # Official logo (gitignored). Documents are logo-free when the folder is empty.
+      - ./mtn/branding/private/logo:/app/brand/logo:ro
+    # Only `api` can reach it: an internal network, no published ports, no internet.
+    networks:
+      - office
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 256
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m
+      - /home/office:size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  office:
+    internal: true
+
+volumes:
+  office-data:
