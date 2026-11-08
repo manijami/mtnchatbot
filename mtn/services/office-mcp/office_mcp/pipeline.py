@@ -61,6 +61,7 @@ class Job:
     extra_checks: Callable[[Path, Path, dict], Awaitable[None]] | None = None
     document_id: str | None = None  # set for a revision
     summary: Callable[[dict], str] | None = None
+    preview: dict | None = None  # preview_png options (dpi, max_pages, columns)
 
 
 async def run(ctx: ToolContext, job: Job) -> list:
@@ -100,8 +101,10 @@ async def run(ctx: ToolContext, job: Job) -> list:
         pages = await render.pdf_pages(pdf)
         checks["render"] = "ok"
         checks["pages"] = pages
+        if "slides" in stats and pages != stats["slides"]:
+            raise ValueError(f"LibreOffice rendered {pages} slides but the deck has {stats['slides']}")
         _check_page_target(job, pages, stats, checks)
-        await render.preview_png(pdf, folder / "preview.png", pages)
+        await render.preview_png(pdf, folder / "preview.png", pages, **(job.preview or {}))
         timings["render_ms"] = int((time.monotonic() - mark) * 1000)
     except PageTargetExceeded as exc:
         checks["error"] = str(exc)

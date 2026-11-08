@@ -49,3 +49,62 @@ def incident_process_spec(**overrides):
     }
     spec.update(overrides)
     return spec
+
+
+def deck_spec(**overrides):
+    """A five-slide deck (title + 4) exercising bullets, chart, table, key message and notes."""
+    spec = {
+        "template": "project_status",
+        "title": "Network Modernisation Programme",
+        "subtitle": "Q3 status review (synthetic sample)",
+        "target_slides": 5,
+        "slides": [
+            {
+                "title": "Summary",
+                "bullets": [
+                    "Programme is on track overall; two workstreams need attention",
+                    "68% of sites upgraded against a 70% plan",
+                    "Budget spend at 61% with 75% of the year elapsed",
+                    "Decision needed on the supplier change for the northern region",
+                ],
+                "key_message": "On track overall; one decision needed this month",
+                "notes": "Open with the overall status, then go to the decision on slide 5.",
+            },
+            {
+                "title": "Site upgrades by quarter",
+                "bullets": ["Q3 delivery beat Q2 by 18%", "Northern region still behind plan"],
+                "chart": {
+                    "type": "column",
+                    "categories": ["Q1", "Q2", "Q3"],
+                    "series": [
+                        {"name": "Plan", "values": [120, 150, 170]},
+                        {"name": "Actual", "values": [110, 140, 165]},
+                    ],
+                },
+                "notes": "Actuals are within 5% of plan in every quarter.",
+            },
+            {
+                "title": "Workstream status",
+                "table": {
+                    "columns": ["Workstream", "Status", "Owner", "Next milestone"],
+                    "rows": [
+                        ["Radio access", "On track", "Network Ops", "Phase 3 sites live"],
+                        ["Transport", "At risk", "Transmission", "Fibre backhaul contract"],
+                        ["Core", "On track", "Core Eng", "Cut-over rehearsal"],
+                        ["IT systems", "Delayed", "IT", "OSS integration test"],
+                    ],
+                },
+            },
+            {
+                "title": "Budget by category",
+                "chart": {
+                    "type": "pie",
+                    "categories": ["Equipment", "Services", "Licences", "Other"],
+                    "series": [{"name": "Spend", "values": [55, 25, 15, 5]}],
+                },
+                "key_message": "Equipment remains the largest cost driver",
+            },
+        ],
+    }
+    spec.update(overrides)
+    return spec

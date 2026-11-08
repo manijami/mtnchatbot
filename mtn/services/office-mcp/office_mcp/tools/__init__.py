@@ -39,4 +39,4 @@ def register(tool: Tool) -> Tool:
 
 
 # Tool modules register themselves on import.
-from . import word_tool  # noqa: E402,F401
+from . import powerpoint_tool, word_tool  # noqa: E402,F401

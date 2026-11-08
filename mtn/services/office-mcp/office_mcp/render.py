@@ -90,11 +90,19 @@ async def pdf_pages(pdf: Path) -> int:
     raise RenderError("the rendered PDF has no page count")
 
 
-async def preview_png(pdf: Path, target: Path, pages: int, dpi: int = PREVIEW_DPI) -> Path:
-    """Renders the first pages side by side (a contact sheet) as one PNG."""
+async def preview_png(
+    pdf: Path,
+    target: Path,
+    pages: int,
+    dpi: int = PREVIEW_DPI,
+    max_pages: int = PREVIEW_MAX_PAGES,
+    columns: int | None = None,
+) -> Path:
+    """Renders the first pages as one contact-sheet PNG (a single row unless ``columns`` is set)."""
     from PIL import Image, ImageOps
 
-    count = max(1, min(pages, PREVIEW_MAX_PAGES))
+    count = max(1, min(pages, max_pages))
+    columns = columns or count
     with tempfile.TemporaryDirectory(prefix="preview-") as work:
         prefix = Path(work) / "p"
         code, _ = await _run(
@@ -106,13 +114,16 @@ async def preview_png(pdf: Path, target: Path, pages: int, dpi: int = PREVIEW_DP
             raise RenderError("the preview image could not be rendered")
         frames = [ImageOps.expand(Image.open(p).convert("RGB"), border=1, fill="#BFBFBF") for p in images]
         gap = 16
-        width = sum(f.width for f in frames) + gap * (len(frames) + 1)
-        height = max(f.height for f in frames) + gap * 2
-        sheet = Image.new("RGB", (width, height), "#F2F2F2")
-        x = gap
-        for frame in frames:
-            sheet.paste(frame, (x, gap))
-            x += frame.width + gap
+        cell_w = max(f.width for f in frames)
+        cell_h = max(f.height for f in frames)
+        rows = -(-len(frames) // columns)
+        used_cols = min(columns, len(frames))
+        sheet = Image.new(
+            "RGB", (used_cols * cell_w + gap * (used_cols + 1), rows * cell_h + gap * (rows + 1)), "#F2F2F2"
+        )
+        for i, frame in enumerate(frames):
+            r, c = divmod(i, columns)
+            sheet.paste(frame, (gap + c * (cell_w + gap), gap + r * (cell_h + gap)))
         sheet.save(target, format="PNG", optimize=True)
         for frame in frames:
             frame.close()

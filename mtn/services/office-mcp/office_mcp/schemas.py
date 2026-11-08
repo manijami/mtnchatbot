@@ -186,3 +186,136 @@ WORD_INPUT_SCHEMA = {
     },
     "required": ["template", "title", "sections"],
 }
+
+
+# --------------------------------------------------------------------------------------------
+# PowerPoint
+
+SlideLine = Annotated[str, Field(min_length=1, max_length=160)]
+
+
+class ChartSeries(Strict):
+    name: Annotated[str, Field(min_length=1, max_length=40)]
+    values: Annotated[list[float], Field(min_length=1, max_length=12)]
+
+
+class Chart(Strict):
+    type: Literal["bar", "column", "line", "pie"]
+    categories: Annotated[list[Annotated[str, Field(min_length=1, max_length=30)]], Field(min_length=1, max_length=12)]
+    series: Annotated[list[ChartSeries], Field(min_length=1, max_length=4)]
+    title: Annotated[str, Field(max_length=80)] | None = None
+
+    @model_validator(mode="after")
+    def _shape(self):
+        n = len(self.categories)
+        for index, series in enumerate(self.series):
+            if len(series.values) != n:
+                raise ValueError(
+                    f"series[{index}] has {len(series.values)} values but there are {n} categories; "
+                    f"give each series exactly {n} values"
+                )
+        if self.type == "pie" and len(self.series) != 1:
+            raise ValueError("a pie chart takes exactly one series")
+        if self.type == "pie" and any(v < 0 for v in self.series[0].values):
+            raise ValueError("pie chart values must not be negative")
+        return self
+
+
+class SlideTable(Table):
+    columns: Annotated[list[Annotated[str, Field(min_length=1, max_length=40)]], Field(min_length=1, max_length=6)]
+    rows: Annotated[list[list[Annotated[str, Field(max_length=120)]]], Field(min_length=1, max_length=8)]
+
+
+class SlideSpec(Strict):
+    title: Annotated[str, Field(min_length=1, max_length=90)]
+    bullets: Annotated[list[SlideLine], Field(max_length=6)] = []
+    table: SlideTable | None = None
+    chart: Chart | None = None
+    key_message: Annotated[str, Field(max_length=140)] | None = None
+    notes: Annotated[str, Field(max_length=3000)] | None = None
+
+    @model_validator(mode="after")
+    def _content(self):
+        if self.table and self.chart:
+            raise ValueError("use either table or chart on one slide, not both; split them over two slides")
+        if not (self.bullets or self.table or self.chart):
+            raise ValueError("a slide needs bullets, a table or a chart")
+        return self
+
+
+class PresentationSpec(Strict):
+    template: Literal["executive_update", "project_status"]
+    title: Annotated[str, Field(min_length=1, max_length=90)]
+    subtitle: Annotated[str, Field(max_length=140)] | None = None
+    include_title_slide: bool = True
+    slides: Annotated[list[SlideSpec], Field(min_length=1, max_length=20)]
+    target_slides: Annotated[int, Field(ge=1, le=21)] | None = None
+    filename: Annotated[str, Field(max_length=80)] | None = None
+
+    @model_validator(mode="after")
+    def _count(self):
+        total = len(self.slides) + (1 if self.include_title_slide else 0)
+        if self.target_slides and total != self.target_slides:
+            content = self.target_slides - (1 if self.include_title_slide else 0)
+            raise ValueError(
+                f"target_slides is {self.target_slides} but the deck has {total} slides "
+                f"({'title slide + ' if self.include_title_slide else ''}{len(self.slides)} content); "
+                f"give exactly {content} items in slides"
+            )
+        return self
+
+
+CHART_SCHEMA = {
+    "type": "object",
+    "description": "Native chart. bar/column/line take up to 4 series; pie takes one series.",
+    "properties": {
+        "type": {**_STR, "description": "bar, column, line or pie."},
+        "categories": {**_STR_LIST, "description": "Category labels (up to 12)."},
+        "series": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"name": _STR, "values": {"type": "array", "items": {"type": "number"}}},
+                "required": ["name", "values"],
+            },
+        },
+        "title": _STR,
+    },
+    "required": ["type", "categories", "series"],
+}
+
+POWERPOINT_INPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "template": {**_STR, "description": "executive_update or project_status."},
+        "title": {**_STR, "description": "Deck title, shown on the title slide."},
+        "subtitle": {**_STR, "description": "Optional subtitle for the title slide."},
+        "include_title_slide": {"type": "boolean", "description": "Default true. The title slide counts as a slide."},
+        "slides": {
+            "type": "array",
+            "description": "Content slides in order, NOT counting the title slide: for a five-slide "
+            "deck with a title slide give exactly 4 items. Each has a title (max 90 characters) and "
+            "bullets, a table or a chart (bullets may sit beside a table or chart). Up to 6 bullets, "
+            "each at most 160 characters (about 25 words).",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "title": _STR,
+                    "bullets": _STR_LIST,
+                    "table": {**TABLE_SCHEMA, "description": "Up to 6 columns and 8 rows."},
+                    "chart": CHART_SCHEMA,
+                    "key_message": {**_STR, "description": "Optional one-line takeaway shown at the bottom."},
+                    "notes": {**_STR, "description": "Speaker notes."},
+                },
+                "required": ["title"],
+            },
+        },
+        "target_slides": {
+            "type": "integer",
+            "description": "Set when the user asks for a number of slides. It counts the title slide, "
+            "so target_slides 5 means 4 items in slides.",
+        },
+        "filename": {**_STR, "description": "Optional file name without extension."},
+    },
+    "required": ["template", "title", "slides"],
+}
