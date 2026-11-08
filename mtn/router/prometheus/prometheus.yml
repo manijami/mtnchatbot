@@ -1,0 +1,13 @@
+# Local Prometheus for the MTN model router demo (scrapes over the internal router network).
+global:
+  scrape_interval: 5s
+  evaluation_interval: 15s
+scrape_configs:
+  - job_name: switchyard
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["switchyard:4000"]
+  - job_name: router-lens
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["router-lens:8080"]

@@ -1,0 +1,12 @@
+# Grafana datasource for the MTN model router demo (local Grafana on :3000, Prometheus on 127.0.0.1:9091).
+# Copy into Grafana's provisioning/datasources directory, or add the same settings in the Grafana UI.
+apiVersion: 1
+datasources:
+  - name: Prometheus (MTN router demo)
+    uid: mtn-router-prometheus
+    type: prometheus
+    access: proxy
+    url: http://127.0.0.1:9091
+    isDefault: false
+    jsonData:
+      timeInterval: 5s
