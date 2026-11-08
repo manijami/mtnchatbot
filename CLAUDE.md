@@ -119,7 +119,8 @@ Follow `AGENTS.md` → "Testing" and "Verification". In short:
       `librechat.yaml` (gitignored) is a symlink to it, and the compose override mounts it.
     - `mtn/branding/Dockerfile`: a thin **branding image** (`mtn-librechat:local`) built `FROM` the
       unchanged upstream image. It copies the logo, favicons, PWA manifest and MTN Brighter Sans
-      into `/app/client/dist`, links `fonts/mtn-fonts.css` from `index.html`, and sets `<title>`.
+      into `/app/client/dist`, links `fonts/mtn-fonts.css` and `css/mtn-overrides.css` from
+      `index.html`, and sets `<title>`.
       `client/public/assets/` stays upstream-identical. Rebuild with `docker compose build api`
       after every base-image update.
     - `mtn/branding/private/` (**gitignored, never commit**): licensed MTN Brighter Sans `.otf`
@@ -206,11 +207,21 @@ Record every deviation from upstream here with rationale, so future upstream mer
   clearly marked placeholders; do not wait for MTN brand assets. Swap in real assets when received.
 - _2026-11-08_ — **Phase 1 layout:** MTN config and brand assets live under `mtn/` and reach the
   app through a branding image layered on the upstream image (see below), not by editing
-  `client/public/assets/`, so there is no upstream file diff. Inline theme is a **partial** token set (unnamed tokens keep LibreChat's
-  defaults). In dark mode, yellow is not used for `surface-submit` (Save/Submit text buttons),
-  because that would force a dark `text-on-status` label, which also sits on the red/status fills.
-  The chat send button uses `surface-inverted`/`text-inverted`. Every theme text/background pair is
-  checked against WCAG AA (report §10); re-run the check after any palette change.
+  `client/public/assets/`, so there is no upstream file diff. Inline theme is a **partial** token
+  set (unnamed tokens keep LibreChat's defaults). The chat send button uses
+  `surface-inverted`/`text-inverted`. Check contrast with `node mtn/scripts/theme-contrast.js .`
+  (full table in `docs/mtn/theme-contrast.md`) after **any** palette change.
+- _2026-11-08_ — **Dark-mode accents = MTN yellow (supersedes "no yellow `surface-submit` in
+  dark").** `accent-primary` and `surface-submit` are `#FFCB05`, with a **black** `text-on-status`
+  label. Because that label sits on every solid status fill, `surface-destructive`/`-hover` and
+  `status-*-strong` move to their bright ends so black text passes AA. The selected row/tab fill is
+  `#786414`: 3.1:1 against the sidebar, with `text-primary` at 4.89:1. Semantic greens and provider
+  icons are unchanged. Light-mode selection fills stay at the upstream level (1.19:1, fill-only);
+  open design follow-up.
+- _2026-11-08_ — **Branding-layer CSS:** `mtn/branding/css/mtn-overrides.css` (linked by the
+  Dockerfile) holds tiny layout fixes for upstream issues only; colours stay in `interface.theme`.
+  The first fix lifts the auth footer clear of the theme toggles below 768px, scoped with `:has()`
+  to the auth layout. It is a no-op if upstream changes that markup. Report the overlap upstream.
 - _2026-11-08_ — **Brand fonts via a branding image (option 1 of 3, chosen by the user):** there is
   no config lever for extra `@font-face` files, so `mtn/branding/Dockerfile` layers fonts, assets
   and an `index.html` stylesheet link onto the unchanged upstream image. Rejected: a new

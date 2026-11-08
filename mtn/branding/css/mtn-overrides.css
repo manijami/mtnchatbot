@@ -1,0 +1,17 @@
+/*
+ * MTN branding-layer CSS (no LibreChat source change). Linked from index.html by
+ * mtn/branding/Dockerfile. Keep this file tiny: theme colours belong in interface.theme.
+ *
+ * Upstream layout issue — auth pages at < 768px:
+ *   AuthLayout pins the ThemeSelector (`absolute bottom-0 inset-s-0`, margin only from `md:`)
+ *   to the bottom-left, and the policy Footer (`role="contentinfo"`) also sits at the bottom,
+ *   so the light/dark + contrast toggles overlap "Privacy policy" on phones.
+ * Fix: below md, lift the footer clear of the toggles. The rule is scoped to the auth layout root
+ * (the min-h-screen element whose direct child is the pinned toggle container). If upstream
+ * changes that markup, the selector stops matching and the page falls back to upstream behaviour.
+ */
+@media (max-width: 767.98px) {
+  .min-h-screen:has(> .absolute.bottom-0) > [role='contentinfo'] {
+    margin-bottom: 3rem;
+  }
+}

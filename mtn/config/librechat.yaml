@@ -33,11 +33,10 @@ interface:
   # MTN placeholder theme. Palette: MTN yellow #FFCB05 + black (public brand colours;
   # exact values to be confirmed by MTN brand). Partial token set: anything not named
   # here keeps the LibreChat default, so contrast-checked defaults still apply.
-  # Light: black primary actions, yellow tints for selection. Dark: yellow for focus,
-  # links and avatars only. Yellow `surface-submit` (the Save/Submit text buttons) would
-  # need a dark `text-on-status` label, and that label also sits on the red/status fills.
-  # The chat send button uses surface-inverted/text-inverted instead.
-  # WCAG check of every text/background pair: docs/mtn/HANDOVER_REPORT.md §10 (all AA pass).
+  # Light: black primary actions, yellow tints for selection. Dark: MTN yellow for links, focus,
+  # primary (Save/Submit/Continue) buttons with a black label, and a yellow-tinted selected row.
+  # The chat send button uses surface-inverted/text-inverted.
+  # Contrast check: `node mtn/scripts/theme-contrast.js .` (table: docs/mtn/theme-contrast.md).
   theme:
     version: 1
     name: 'MTN (placeholder)'
@@ -61,6 +60,24 @@ interface:
           fontFamily: '"MTN Brighter Sans", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif'
       dark:
         colors:
+          # Accents: MTN yellow replaces LibreChat green. Yellow fills carry a BLACK label
+          # (text-on-status), so every other text-on-status fill moves to its bright end so
+          # black text keeps AA (destructive, status-*-strong).
+          rgb-accent-primary: '255 203 5'
+          rgb-accent-primary-hover: '255 221 92'
+          rgb-surface-submit: '255 203 5'
+          rgb-surface-submit-hover: '255 221 92'
+          rgb-text-on-status: '0 0 0'
+          rgb-surface-destructive: '248 113 113'
+          rgb-surface-destructive-hover: '252 165 165'
+          rgb-status-error-strong: '248 113 113'
+          rgb-status-success-strong: '52 211 153'
+          rgb-status-warning-strong: '251 191 36'
+          rgb-status-info-strong: '189 189 189'
+          # Selected sidebar row / tab: yellow-tinted fill, >= 3:1 against the sidebar while
+          # the row text (text-primary) keeps AA.
+          rgb-surface-nav-selected: '120 100 20'
+          rgb-surface-tab-selected: '120 100 20'
           rgb-ring-primary: '255 203 5'
           rgb-focus-outline: '255 203 5'
           rgb-focus-control: '255 203 5'

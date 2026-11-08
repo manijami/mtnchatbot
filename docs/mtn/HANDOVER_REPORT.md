@@ -15,7 +15,7 @@ a thin branding image layered on top. **No LibreChat source code has been modifi
 | Upstream base | `f4154b649` — "🦿 chore: Bump Agents SDK to 4.2.1 (#17664)" (2026-10-31) |
 | `package.json` version | `v0.8.9-rc1` (`git describe`: `v0.8.9-rc1-84-gf4154b649`) |
 | Remotes | `origin` → `https://github.com/manijami/mtnchatbot.git`; `upstream` → `https://github.com/LibreChat-AI/LibreChat.git` (no credentials in URLs) |
-| MTN commits | 5 commits on top of upstream (4 docs, 1 Phase 1 branding). Full list in §8. **None pushed.** |
+| MTN commits | 6 commits on top of upstream (4 docs, 1 Phase 1 branding, 1 dark-mode fix). Full list in §8. **None pushed.** |
 | Source diff vs upstream | **None** in LibreChat code. MTN files only: `CLAUDE.md`, `docs/mtn/`, `mtn/` (config, branding image, theme check script), plus 3 lines in `.gitignore`. |
 | Licensed assets | MTN Brighter Sans fonts and official logo files are in gitignored `mtn/branding/private/` and were **never committed** (checked before each commit). |
 
@@ -83,7 +83,7 @@ key demo value.
 | Phase | Description | Status |
 |---|---|---|
 | 0 — Baseline & environment | Clean local run, version/commit/remote confirmed | **Done** (this report) |
-| 1 — Configuration & branding | Title, footer, help URL, welcome, privacy/ToS, MTN theme, assets; curate `modelSpecs` later | **Done** (§9). Copy, URLs and policy text are still placeholders waiting on MTN. Theme passes WCAG AA (§10) and works at 390px (§10) |
+| 1 — Configuration & branding | Title, footer, help URL, welcome, privacy/ToS, MTN theme, assets; curate `modelSpecs` later | **Done** (§9). Copy, URLs and policy text are still placeholders waiting on MTN. Dark-mode accents use MTN yellow; contrast and 390px checks in §10 |
 | 2 — Identity & access | OIDC + SAML as main way in; prod `ALLOW_REGISTRATION=false`; roles, Admin Panel | Not started — waiting on MTN IdP details |
 | 3 — Infrastructure & data | Mongo/Meili/pgvector/RAG/file storage on MTN-managed services | Not started |
 | 4 — Office document generation | Self-hosted Code Interpreter + template-driven Office MCP tools | Not started (new) |
@@ -130,7 +130,7 @@ the **Groq** custom endpoint, model `openai/gpt-oss-120b`, as test user `phase0t
 | Observability (OTel / Langfuse) | v0.8.9-rc1 | `otel/` config | Not configured | Generate a trace | **Not tested**. |
 | S3/CloudFront storage | v0.8.9-rc1 | AWS creds, `fileStrategy` | Not configured (Phase 3) | Upload, serve via CDN | **Not tested**. |
 | Multilingual UI | v0.8.9-rc1 (core) | None | Default-available | Switch language | **Not tested** — out of Phase 0 scope. |
-| Deployment theming | v0.8.9-rc1 | `interface.theme` + branding image | Dev: inline **MTN** theme, official logo, **MTN Brighter Sans** | Apply inline theme, check light and dark, fonts, contrast, mobile | **Tested OK** (Phase 1): theme accepted by the server validator. Light mode: black primary buttons, yellow-tint user bubble and selected nav. Dark mode: yellow focus ring. Brand font **loaded** (computed `"MTN Brighter Sans"`; faces 300/400/500–600 loaded). All 74 theme text/background pairs pass WCAG AA (§10). Login, chat and sidebar checked at 390px in both modes (§10). |
+| Deployment theming | v0.8.9-rc1 | `interface.theme` + branding image | Dev: inline **MTN** theme, official logo, **MTN Brighter Sans** | Apply inline theme, check light and dark, fonts, contrast, mobile | **Tested OK** (Phase 1): theme accepted by the server validator. Light mode: black primary buttons, yellow-tint user bubble and selected nav. Dark mode: MTN yellow for focus, links, primary buttons (black label) and a yellow-tinted selected row. Brand font **loaded** (computed `"MTN Brighter Sans"`; faces 300/400/500–600 loaded). Contrast: 100/102 pairs pass; **dark mode 51/51**. The 2 failures are light-mode selection fills at the upstream level (§10). Login, chat and sidebar checked at 390px in both modes (§10). |
 | Manual context compaction | v0.8.9-rc1 | None | Default-available | Trigger summarize-only turn | **Not tested** — out of Phase 0 scope. |
 
 **Phase 0 acceptance (all passed):** register test user ✅ · send chat message ✅ · streaming ✅ ·
@@ -171,7 +171,7 @@ the defaults in `mtn/config/librechat.yaml` are models the key can actually use 
 
 | Container | Image | State | Ports |
 |---|---|---|---|
-| `LibreChat` (api) | **`mtn-librechat:local`** (`sha256:83421c0eb74d…`), built by `mtn/branding/Dockerfile` FROM `librechat-dev:latest` | Up; `/health` → `OK`; `[schedules] engine started` | `3080` |
+| `LibreChat` (api) | **`mtn-librechat:local`** (`sha256:422615021d62…`), built by `mtn/branding/Dockerfile` FROM `librechat-dev:latest` | Up; `/health` → `OK`; `[schedules] engine started` | `3080` |
 | `admin-panel` | `librechat-admin-panel:latest` | Up **(healthy)** | `3001→3000` |
 | `chat-mongodb` | `mongo:8.0.20` | Up | internal |
 | `chat-meilisearch` | `getmeili/meilisearch:v1.35.1` | Up | internal |
@@ -208,14 +208,15 @@ Only `admin-panel` defines a Docker healthcheck; the others were verified by sta
 - **Grafana on host port 3000** — admin panel moved to 3001 via `ADMIN_PANEL_PORT`.
 - **Push blocked on credentials:** `git push` over HTTPS fails with no GitHub credentials on this
   machine. The user must push (or set up `gh auth login`). The repo is confirmed **private**.
-- **Mobile (390px), upstream layout:** on the login page the light/dark and contrast toggle icons
-  (bottom-left) overlap the "Privacy policy" link in both modes. This is upstream layout, not caused
-  by the MTN theme, and cannot be fixed by config (§10).
-- **Dark mode keeps LibreChat green** for the login Continue button and the auth/policy links
-  (`#047857`, `#41A79D`). It passes AA, but it isn't MTN-branded. Revisit when MTN confirms the dark
-  palette (§10).
-- **Dark mode selected sidebar row** uses LibreChat's subtle grey, so selection is much weaker than
-  the light-mode yellow (non-text indicator; not part of the text-contrast check).
+- **Upstream layout issue, fixed in the branding layer:** on auth pages below 768px, upstream pins
+  the theme toggles (`absolute bottom-0`) over the policy footer, so they overlapped "Privacy policy".
+  Fixed by CSS only: `mtn/branding/css/mtn-overrides.css` lifts the footer 3rem, scoped with
+  `:has()` to the auth layout root. Measured 0px overlap at 390/320px in both modes, and desktop
+  is unchanged. Worth reporting upstream; the rule becomes a no-op if upstream changes the markup.
+- **Light-mode selection fills are fill-only below 3:1** (nav 1.19:1, tab 1.27:1). That matches
+  LibreChat's own default (1.20:1). Conversation rows also get a 2px `text-primary` left bar,
+  but nav buttons, settings tabs and prompt items rely on the fill alone. Follow-up: a design
+  decision (a 3:1 light fill needs a dark-gold tone).
 
 ### Decisions waiting on MTN
 
@@ -253,7 +254,8 @@ Only `admin-panel` defines a Docker healthcheck; the others were verified by sta
 
 | Commit | Message |
 |---|---|
-| *(this commit)* | docs(mtn): phase 1 handover refresh |
+| *(this commit)* | fix(mtn): dark-mode accents use MTN yellow |
+| `d1b3f13c1` | docs(mtn): phase 1 handover refresh |
 | `025e5269c` | feat(mtn): Phase 1 branding — MTN logo, fonts, theme |
 | `f9c2ebd84` | docs(mtn): set execution order 1-4-2-3-5-6, Groq data rule, local schedules flag |
 | `d3d5eae45` | docs(mtn): record Phase 0 commit in handover report |
@@ -353,132 +355,75 @@ services:
 
 ---
 
-## 10. Phase 1 accessibility and mobile checks (2026-11-08)
+## 10. Phase 1 accessibility and mobile checks (2026-11-08, updated for dark-mode accents)
 
-### WCAG contrast — effective theme (LibreChat defaults + MTN overrides)
+### Dark-mode accents — theme tokens only
 
-Generated by `node mtn/scripts/theme-contrast.js . --md`. It reads LibreChat's default light and dark
-palettes (`packages/data-provider/src/themes/{default,dark}.ts`) and applies the overrides in
-`mtn/config/librechat.yaml`. **Re-run it after any palette change.**
-- **Thresholds:** text needs **4.5:1** (WCAG 1.4.3 AA, normal text). UI indicators marked "(UI)" need
-  **3:1** (WCAG 1.4.11).
-- **Asterisk:** `*` marks a pair that involves at least one MTN-overridden token.
-- **Pairs follow real component usage.** The chat send button is `surface-inverted` +
-  `text-inverted` (`composerSubmitClasses`). `surface-submit` + `text-on-status` is used by the
-  Save/Submit text buttons, which sit on `surface-primary`/`surface-dialog`.
+LibreChat green is gone from dark mode. MTN yellow `#FFCB05` is used as a **fill with a black
+label** or as **link text on dark surfaces**:
 
-**Result: 74 / 74 pairs pass AA. No theme fixes were needed.** The first draft of this check paired
-`surface-submit` with `surface-composer` (2.44:1). That combination is never rendered, because the
-send button uses `surface-inverted`, so the pair was replaced with the real ones (all pass). The
-config comment and `CLAUDE.md`, which had attributed the dark-mode yellow decision to the send
-button, were corrected.
+| Token(s) | Was (LibreChat) | Now (MTN) | Where it shows |
+|---|---|---|---|
+| `accent-primary` / `-hover` | #41A79D / #6DC8B9 | **#FFCB05** / #FFDD5C | Auth links (Sign up, Privacy, Terms), auth field focus border |
+| `surface-submit` / `-hover` | #047857 / #065F46 | **#FFCB05** / #FFDD5C | Continue, Save, Submit buttons |
+| `text-on-status` | #FFFFFF | **#000000** | Label on every solid status fill |
+| `surface-destructive` / `-hover`, `status-error-strong` | #991B1B / #7F1D1D | #F87171 / #FCA5A5 | Delete buttons and error badges (bright end, so the black label passes AA) |
+| `status-success/warning/info-strong` | #088759 / #92400E / #424242 | #34D399 / #FBBF24 / #BDBDBD | Status badges (same reason) |
+| `surface-nav-selected`, `surface-tab-selected` | #2F2F2F | **#786414** (yellow-tinted) | Selected sidebar row, account button, settings tab |
 
-| Mode | Foreground | Background | Colours | Ratio | Needs | AA |
-|---|---|---|---|---|---|---|
-| light | `text-primary` | `surface-primary` | #212121 / #FFFFFF | 16.10:1 | 4.5:1 | ✅ Pass |
-| light | `text-primary` | `surface-secondary` | #212121 / #F7F7F8 | 15.04:1 | 4.5:1 | ✅ Pass |
-| light | `text-primary` | `surface-chat` | #212121 / #FFFFFF | 16.10:1 | 4.5:1 | ✅ Pass |
-| light | `text-primary` | `surface-sidebar` | #212121 / #F7F7F8 | 15.04:1 | 4.5:1 | ✅ Pass |
-| light | `text-primary` | `surface-composer` | #212121 / #FFFFFF | 16.10:1 | 4.5:1 | ✅ Pass |
-| light | `text-primary` | `surface-dialog` | #212121 / #FFFFFF | 16.10:1 | 4.5:1 | ✅ Pass |
-| light | `text-primary` * | `surface-user-message` | #212121 / #FFF3C4 | 14.47:1 | 4.5:1 | ✅ Pass |
-| light | `text-primary` * | `surface-nav-selected` | #212121 / #FFE380 | 12.69:1 | 4.5:1 | ✅ Pass |
-| light | `text-primary` * | `surface-tab-selected` | #212121 / #FFE380 | 12.69:1 | 4.5:1 | ✅ Pass |
-| light | `text-secondary` | `surface-primary` | #424242 / #FFFFFF | 10.05:1 | 4.5:1 | ✅ Pass |
-| light | `text-secondary` | `surface-chat` | #424242 / #FFFFFF | 10.05:1 | 4.5:1 | ✅ Pass |
-| light | `text-secondary` | `surface-sidebar` | #424242 / #F7F7F8 | 9.39:1 | 4.5:1 | ✅ Pass |
-| light | `text-secondary` * | `surface-user-message` | #424242 / #FFF3C4 | 9.03:1 | 4.5:1 | ✅ Pass |
-| light | `text-secondary` * | `surface-nav-selected` | #424242 / #FFE380 | 7.92:1 | 4.5:1 | ✅ Pass |
-| light | `text-tertiary` | `surface-primary` | #595959 / #FFFFFF | 7.00:1 | 4.5:1 | ✅ Pass |
-| light | `text-tertiary` | `surface-chat` | #595959 / #FFFFFF | 7.00:1 | 4.5:1 | ✅ Pass |
-| light | `text-tertiary` | `surface-sidebar` | #595959 / #F7F7F8 | 6.54:1 | 4.5:1 | ✅ Pass |
-| light | `text-tertiary` * | `surface-nav-selected` | #595959 / #FFE380 | 5.52:1 | 4.5:1 | ✅ Pass |
-| light | `text-on-status` * | `surface-submit` | #FFFFFF / #000000 | 21.00:1 | 4.5:1 | ✅ Pass |
-| light | `text-on-status` * | `surface-submit-hover` | #FFFFFF / #333333 | 12.63:1 | 4.5:1 | ✅ Pass |
-| light | `text-on-status` | `surface-destructive` | #FFFFFF / #B91C1C | 6.47:1 | 4.5:1 | ✅ Pass |
-| light | `text-inverted` * | `button-primary` | #FFFFFF / #000000 | 21.00:1 | 4.5:1 | ✅ Pass |
-| light | `text-inverted` * | `button-primary-hover` | #FFFFFF / #333333 | 12.63:1 | 4.5:1 | ✅ Pass |
-| light | `text-inverted` | `surface-inverted` | #FFFFFF / #171717 | 17.93:1 | 4.5:1 | ✅ Pass |
-| light | `avatar-text` * | `avatar-fill` | #000000 / #FFCB05 | 13.80:1 | 4.5:1 | ✅ Pass |
-| light | `link` | `surface-chat` | #2563EB / #FFFFFF | 5.17:1 | 4.5:1 | ✅ Pass |
-| light | `link` | `surface-primary` | #2563EB / #FFFFFF | 5.17:1 | 4.5:1 | ✅ Pass |
-| light | `link-hover` | `surface-chat` | #1D4ED8 / #FFFFFF | 6.70:1 | 4.5:1 | ✅ Pass |
-| light | `link-prose` | `surface-chat` | #2563EB / #FFFFFF | 5.17:1 | 4.5:1 | ✅ Pass |
-| light | `focus-outline` | `surface-chat` | #000000 / #FFFFFF | 21.00:1 | 3:1 (UI) | ✅ Pass |
-| light | `focus-outline` | `surface-primary` | #000000 / #FFFFFF | 21.00:1 | 3:1 (UI) | ✅ Pass |
-| light | `ring-primary` | `surface-primary` | #595959 / #FFFFFF | 7.00:1 | 3:1 (UI) | ✅ Pass |
-| light | `border-field-focus` * | `field-fill` | #000000 / #FFFFFF | 21.00:1 | 3:1 (UI) | ✅ Pass |
-| light | `surface-inverted` | `surface-composer` | #171717 / #FFFFFF | 17.93:1 | 3:1 (UI) | ✅ Pass |
-| light | `text-inverted` | `surface-inverted` | #FFFFFF / #171717 | 17.93:1 | 3:1 (UI) | ✅ Pass |
-| light | `surface-submit` * | `surface-primary` | #000000 / #FFFFFF | 21.00:1 | 3:1 (UI) | ✅ Pass |
-| light | `surface-submit` * | `surface-dialog` | #000000 / #FFFFFF | 21.00:1 | 3:1 (UI) | ✅ Pass |
-| dark | `text-primary` | `surface-primary` | #ECECEC / #0D0D0D | 16.45:1 | 4.5:1 | ✅ Pass |
-| dark | `text-primary` | `surface-secondary` | #ECECEC / #212121 | 13.63:1 | 4.5:1 | ✅ Pass |
-| dark | `text-primary` | `surface-chat` | #ECECEC / #2F2F2F | 11.33:1 | 4.5:1 | ✅ Pass |
-| dark | `text-primary` | `surface-sidebar` | #ECECEC / #171717 | 15.18:1 | 4.5:1 | ✅ Pass |
-| dark | `text-primary` | `surface-composer` | #ECECEC / #2F2F2F | 11.33:1 | 4.5:1 | ✅ Pass |
-| dark | `text-primary` | `surface-dialog` | #ECECEC / #121212 | 15.86:1 | 4.5:1 | ✅ Pass |
-| dark | `text-primary` | `surface-user-message` | #ECECEC / #2F2F2F | 11.33:1 | 4.5:1 | ✅ Pass |
-| dark | `text-primary` | `surface-nav-selected` | #ECECEC / #2F2F2F | 11.33:1 | 4.5:1 | ✅ Pass |
-| dark | `text-primary` | `surface-tab-selected` | #ECECEC / #2F2F2F | 11.33:1 | 4.5:1 | ✅ Pass |
-| dark | `text-secondary` | `surface-primary` | #CDCDCD / #0D0D0D | 12.23:1 | 4.5:1 | ✅ Pass |
-| dark | `text-secondary` | `surface-chat` | #CDCDCD / #2F2F2F | 8.42:1 | 4.5:1 | ✅ Pass |
-| dark | `text-secondary` | `surface-sidebar` | #CDCDCD / #171717 | 11.28:1 | 4.5:1 | ✅ Pass |
-| dark | `text-secondary` | `surface-user-message` | #CDCDCD / #2F2F2F | 8.42:1 | 4.5:1 | ✅ Pass |
-| dark | `text-secondary` | `surface-nav-selected` | #CDCDCD / #2F2F2F | 8.42:1 | 4.5:1 | ✅ Pass |
-| dark | `text-tertiary` | `surface-primary` | #999696 / #0D0D0D | 6.62:1 | 4.5:1 | ✅ Pass |
-| dark | `text-tertiary` | `surface-chat` | #999696 / #2F2F2F | 4.56:1 | 4.5:1 | ✅ Pass |
-| dark | `text-tertiary` | `surface-sidebar` | #999696 / #171717 | 6.11:1 | 4.5:1 | ✅ Pass |
-| dark | `text-tertiary` | `surface-nav-selected` | #999696 / #2F2F2F | 4.56:1 | 4.5:1 | ✅ Pass |
-| dark | `text-on-status` | `surface-submit` | #FFFFFF / #047857 | 5.48:1 | 4.5:1 | ✅ Pass |
-| dark | `text-on-status` | `surface-submit-hover` | #FFFFFF / #065F46 | 7.68:1 | 4.5:1 | ✅ Pass |
-| dark | `text-on-status` | `surface-destructive` | #FFFFFF / #991B1B | 8.31:1 | 4.5:1 | ✅ Pass |
-| dark | `text-inverted` | `button-primary` | #171717 / #FFFFFF | 17.93:1 | 4.5:1 | ✅ Pass |
-| dark | `text-inverted` | `button-primary-hover` | #171717 / #ECECEC | 15.18:1 | 4.5:1 | ✅ Pass |
-| dark | `text-inverted` | `surface-inverted` | #171717 / #FFFFFF | 17.93:1 | 4.5:1 | ✅ Pass |
-| dark | `avatar-text` * | `avatar-fill` | #000000 / #FFCB05 | 13.80:1 | 4.5:1 | ✅ Pass |
-| dark | `link` * | `surface-chat` | #FFCB05 / #2F2F2F | 8.80:1 | 4.5:1 | ✅ Pass |
-| dark | `link` * | `surface-primary` | #FFCB05 / #0D0D0D | 12.77:1 | 4.5:1 | ✅ Pass |
-| dark | `link-hover` * | `surface-chat` | #FFDD5C / #2F2F2F | 10.04:1 | 4.5:1 | ✅ Pass |
-| dark | `link-prose` * | `surface-chat` | #FFCB05 / #2F2F2F | 8.80:1 | 4.5:1 | ✅ Pass |
-| dark | `focus-outline` * | `surface-chat` | #FFCB05 / #2F2F2F | 8.80:1 | 3:1 (UI) | ✅ Pass |
-| dark | `focus-outline` * | `surface-primary` | #FFCB05 / #0D0D0D | 12.77:1 | 3:1 (UI) | ✅ Pass |
-| dark | `ring-primary` * | `surface-primary` | #FFCB05 / #0D0D0D | 12.77:1 | 3:1 (UI) | ✅ Pass |
-| dark | `border-field-focus` * | `field-fill` | #FFCB05 / #0D0D0D | 12.77:1 | 3:1 (UI) | ✅ Pass |
-| dark | `surface-inverted` | `surface-composer` | #FFFFFF / #2F2F2F | 13.39:1 | 3:1 (UI) | ✅ Pass |
-| dark | `text-inverted` | `surface-inverted` | #171717 / #FFFFFF | 17.93:1 | 3:1 (UI) | ✅ Pass |
-| dark | `surface-submit` | `surface-primary` | #047857 / #0D0D0D | 3.54:1 | 3:1 (UI) | ✅ Pass |
-| dark | `surface-submit` | `surface-dialog` | #047857 / #121212 | 3.42:1 | 3:1 (UI) | ✅ Pass |
+Semantic greens (success text, spreadsheet icon, syntax, chart series) and provider brand icons are
+unchanged on purpose.
 
-**Rendered login page, measured in the browser** (computed colours; it catches tokens outside the
-table above):
+### WCAG contrast — effective theme
 
-| Element | Light | Dark |
+`node mtn/scripts/theme-contrast.js .` checks **102 pairs**. The full table is in
+**[`theme-contrast.md`](theme-contrast.md)** (generated, do not hand-edit).
+- **Thresholds:** text needs 4.5:1 (AA); UI indicators need 3:1.
+- **Pairs follow real component usage.** Send button = `surface-inverted`/`text-inverted`. Save/Submit
+  = `surface-submit` + `text-on-status`. Selected rows = `text-primary` text and `text-secondary`
+  icons only, checked by reading `Convo`, `ChatGroupItem`, `Button` nav and the settings tabs, and
+  measured in the browser.
+
+**Result: 100 / 102 pass. Dark mode 51/51.** The two failures are both light mode and pre-existing
+in kind:
+
+| Mode | Pair | Ratio | Needs | Note |
+|---|---|---|---|---|
+| light | `surface-nav-selected` (#FFE380) vs `surface-sidebar` | 1.19:1 | 3:1 (UI) | LibreChat default is 1.20:1. Conversation rows also have a 2px `text-primary` bar |
+| light | `surface-tab-selected` (#FFE380) vs `surface-primary` | 1.27:1 | 3:1 (UI) | LibreChat default is 1.18:1 |
+
+Key dark-mode rows (from the generated table):
+
+| Pair | Colours | Ratio |
 |---|---|---|
-| "Welcome back" heading | #212121 on #FFFFFF — 16.10:1 ✅ | #ECECEC on #0D0D0D — 16.45:1 ✅ |
-| Continue button label | #FFFFFF on #000000 — 21.00:1 ✅ | #FFFFFF on #047857 — 5.48:1 ✅ |
-| "Don't have an account?" | #424242 on #FFFFFF — 10.05:1 ✅ | #CDCDCD on #0D0D0D — 12.23:1 ✅ |
-| "Sign up" / "Privacy policy" links | #000000 on #FFFFFF — 21.00:1 ✅ | #41A79D on #0D0D0D — 6.70:1 ✅ |
-| Field label | #595959 on #FFFFFF — 7.00:1 ✅ | #999696 on #0D0D0D — 6.62:1 ✅ |
+| `text-on-status` on `surface-submit` | #000000 / #FFCB05 | 13.80:1 ✅ |
+| `text-on-status` on `surface-destructive` | #000000 / #F87171 | 7.59:1 ✅ |
+| `text-on-status` on `status-*-strong` (4 fills) | black on #34D399 / #F87171 / #FBBF24 / #BDBDBD | 7.59–12.58:1 ✅ |
+| `accent-primary` on `surface-primary` / `surface-dialog` / `surface-chat` | #FFCB05 on #0D0D0D / #121212 / #2F2F2F | 12.77 / 12.31 / 8.80:1 ✅ |
+| `text-primary` on `surface-nav-selected` | #ECECEC / #786414 | 4.89:1 ✅ |
+| `text-secondary` icons on `surface-nav-selected` | #CDCDCD / #786414 | 3.64:1 ✅ (UI) |
+| `surface-nav-selected` vs `surface-sidebar` | #786414 / #171717 | 3.10:1 ✅ (UI) |
+| file-badge icons (`text-on-status` on `series-1` / `series-4`) | black on #098CEE / #C8850C | 6.00 / 6.82:1 ✅ (UI) |
 
-### Mobile width (390px), light and dark
+**Measured in the browser, dark mode at 390px** (computed colours): Continue #000000 on #FFCB05
+13.80:1; Sign up, Privacy policy and Terms of service #FFCB05 on #0D0D0D 12.77:1; "Welcome back"
+16.45:1. The selected conversation row has fill #786414 (3.10:1 against the sidebar), title #ECECEC
+at 4.89:1, a "…" icon at 3.64:1, and a 2px `::before` bar in `text-primary` (15.18:1 against the
+sidebar). A scan of every visible element on the chat page found **no** remaining LibreChat accent
+green (#047857, #41A79D, #065F46, #6DC8B9).
 
-The Chrome window could not be resized (it stayed 1920px), so the app was loaded in a 390×700
-same-origin iframe. The app's viewport was confirmed at **390px**, so its media queries and mobile
-layout apply exactly as on a phone. Horizontal overflow was checked with
-`scrollWidth > innerWidth` on every screen.
+### Mobile width (390px)
+
+The app was loaded in a same-origin iframe, because the Chrome window could not be resized. The app's
+viewport was confirmed at 390px, and overflow was checked with `scrollWidth > innerWidth`.
 
 | Screen | Light | Dark |
 |---|---|---|
-| Login | ✅ Logo, form and Continue fit; no overflow; MTN font. ⚠️ Theme toggle icons overlap "Privacy policy" (upstream layout) | ✅ Same layout, no overflow. ⚠️ Same icon overlap; Continue and links are LibreChat green |
-| Chat (new + existing conversation) | ✅ Welcome wraps cleanly; yellow-tint user bubble; composer pinned to the bottom; footer hidden at this width (upstream behaviour); no overflow | ✅ Readable; no overflow |
-| Sidebar (drawer) | ✅ Opens full-width; yellow selected row; no overflow | ✅ No overflow. Selected row is a subtle grey (weak, non-text indicator) |
+| Login | ✅ Black Continue; no overflow; footer clear of the toggles (0px overlap) | ✅ Yellow Continue with black label, yellow links; no overflow; 0px overlap |
+| Chat | ✅ Yellow-tint user bubble; composer pinned; no overflow | ✅ No LibreChat green; no overflow |
+| Sidebar | ✅ Yellow selected row + left bar; no overflow | ✅ Yellow-tinted selected row (#786414) + left bar; no overflow |
 
-Follow-ups (none block Phase 4):
-1. **Login icon overlap** at ≤390px. Upstream layout; fixing it needs a client change, so report it
-   upstream or handle it in a later build. Not fixable by config.
-2. **Dark-mode brand accents.** Login CTA, links and the selected sidebar row use LibreChat
-   green/grey. Set dark `surface-submit`/link/nav-selected tokens once MTN confirms the dark palette,
-   then re-run the contrast script.
+Overlap fix verified: footer links end at y=652px, and the toggles start at y=676px, at both 390px
+and 320px in both modes. At 1000px the rule doesn't apply (upstream 16px margin; no overlap).
 
-Screenshots from these checks were saved locally by the browser tool (not committed).
+Screenshots were saved locally by the browser tool (not committed).

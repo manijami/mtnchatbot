@@ -24,9 +24,16 @@ const T = 4.5, U = 3;
 const pairs = [
   ...['surface-primary','surface-secondary','surface-chat','surface-sidebar','surface-composer','surface-dialog',
       'surface-user-message','surface-nav-selected','surface-tab-selected'].map((b) => ['text-primary', b, T]),
-  ...['surface-primary','surface-chat','surface-sidebar','surface-user-message','surface-nav-selected'].map((b) => ['text-secondary', b, T]),
-  ...['surface-primary','surface-chat','surface-sidebar','surface-nav-selected'].map((b) => ['text-tertiary', b, T]),
-  ['text-on-status', 'surface-submit', T], ['text-on-status', 'surface-submit-hover', T], ['text-on-status', 'surface-destructive', T],
+  ...['surface-primary','surface-chat','surface-sidebar','surface-user-message'].map((b) => ['text-secondary', b, T]),
+  ...['surface-primary','surface-chat','surface-sidebar'].map((b) => ['text-tertiary', b, T]),
+  // Selected rows (Convo, ChatGroupItem, nav Button, settings tabs) put text-primary text on the fill;
+  // text-secondary appears there only as icons ("…" menu, author icon), so 3:1 applies.
+  ['text-secondary', 'surface-nav-selected', U],
+  // text-on-status is the label on every solid status fill (Button submit/destructive, AskOptions, badges)
+  ...['surface-submit','surface-submit-hover','surface-destructive','surface-destructive-hover',
+      'status-success-strong','status-error-strong','status-warning-strong','status-info-strong'].map((b) => ['text-on-status', b, T]),
+  // accent-primary is link/auth text (never a fill)
+  ...['surface-primary','surface-dialog','surface-chat'].flatMap((b) => [['accent-primary', b, T], ['accent-primary-hover', b, T]]),
   ['text-inverted', 'button-primary', T], ['text-inverted', 'button-primary-hover', T], ['text-inverted', 'surface-inverted', T],
   ['avatar-text', 'avatar-fill', T],
   ['link', 'surface-chat', T], ['link', 'surface-primary', T], ['link-hover', 'surface-chat', T], ['link-prose', 'surface-chat', T],
@@ -36,6 +43,10 @@ const pairs = [
   // chat send button = bg-surface-inverted + text-inverted (composerSubmitClasses); text buttons = surface-submit
   ['surface-inverted', 'surface-composer', U], ['text-inverted', 'surface-inverted', U],
   ['surface-submit', 'surface-primary', U], ['surface-submit', 'surface-dialog', U],
+  // file-source badge icons (SourceIcon: bg-series-1/4 + text-on-status)
+  ['text-on-status', 'series-1', U], ['text-on-status', 'series-4', U],
+  // selected sidebar row / tab must stand out from the sidebar
+  ['surface-nav-selected', 'surface-sidebar', U], ['surface-tab-selected', 'surface-primary', U],
 ];
 const rows = [];
 for (const mode of ['light', 'dark']) {

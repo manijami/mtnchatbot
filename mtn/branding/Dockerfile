@@ -4,6 +4,7 @@
 #   - brand assets: logo.svg, favicons, app icons, PWA manifest
 #   - MTN Brighter Sans font files + mtn-fonts.css, linked from index.html
 #   - <title> set to the app title (the static shell otherwise says "LibreChat")
+#   - css/mtn-overrides.css: tiny layout fixes for upstream issues (always linked)
 #
 # Licensed/official assets come from mtn/branding/private/ (gitignored). When that
 # folder is absent (fresh clone), the tracked placeholders are used and no font is added.
@@ -33,6 +34,9 @@ RUN --mount=type=bind,source=.,target=/tmp/mtn-branding \
       sed -i 's#</head>#  <link rel="stylesheet" href="assets/fonts/mtn-fonts.css" />\n  </head>#' "$D/index.html"; \
       echo "branding: MTN Brighter Sans added"; \
     else echo "branding: no font files, theme falls back to Inter"; fi; \
+    mkdir -p "$D/assets/mtn"; \
+    cp "$B/css/mtn-overrides.css" "$D/assets/mtn/mtn-overrides.css"; \
+    sed -i 's#</head>#  <link rel="stylesheet" href="assets/mtn/mtn-overrides.css" />\n  </head>#' "$D/index.html"; \
     sed -i "s#<title>[^<]*</title>#<title>${APP_TITLE}</title>#" "$D/index.html"; \
     rm -f "$D/index.html.br" "$D/index.html.gz" "$D/manifest.webmanifest.br" "$D/manifest.webmanifest.gz"; \
     grep -c 'mtn-fonts.css' "$D/index.html" || true
