@@ -44,13 +44,11 @@ async def bounds_check(target: Path, _folder: Path, checks: dict) -> None:
         raise ValidationFailed("layout problems: " + "; ".join(report["issues"][:8]), checks)
 
 
-async def run(ctx: ToolContext, arguments: dict) -> list:
-    spec = parse(PresentationSpec, arguments)
-    try:
-        template = templates.load(ctx.settings.templates_dir, "powerpoint", spec.template)
-    except templates.TemplateError as exc:
-        raise ToolError(f"Template problem: {exc}.") from None
-    job = pipeline.Job(
+SPEC = PresentationSpec
+
+
+def make_job(spec: PresentationSpec, template, document_id: str | None = None) -> pipeline.Job:
+    return pipeline.Job(
         kind="powerpoint",
         ext=".pptx",
         spec=spec,
@@ -58,10 +56,19 @@ async def run(ctx: ToolContext, arguments: dict) -> list:
         build=powerpoint.build,
         reopen=reopen,
         extra_checks=bounds_check,
+        document_id=document_id,
         summary=lambda s: f"{s['charts']} charts, {s['tables']} tables, speaker notes on {s['notes']}, bounds check passed",
         preview={"dpi": 40, "max_pages": 21, "columns": 3},
     )
-    return await pipeline.run(ctx, job)
+
+
+async def run(ctx: ToolContext, arguments: dict) -> list:
+    spec = parse(PresentationSpec, arguments)
+    try:
+        template = templates.load(ctx.settings.templates_dir, "powerpoint", spec.template)
+    except templates.TemplateError as exc:
+        raise ToolError(f"Template problem: {exc}.") from None
+    return await pipeline.run(ctx, make_job(spec, template))
 
 
 TOOL = register(

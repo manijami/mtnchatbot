@@ -50,13 +50,11 @@ async def recalc_check(target: Path, folder: Path, checks: dict) -> None:
         )
 
 
-async def run(ctx: ToolContext, arguments: dict) -> list:
-    spec = parse(WorkbookSpec, arguments)
-    try:
-        template = templates.load(ctx.settings.templates_dir, "excel", spec.template)
-    except templates.TemplateError as exc:
-        raise ToolError(f"Template problem: {exc}.") from None
-    job = pipeline.Job(
+SPEC = WorkbookSpec
+
+
+def make_job(spec: WorkbookSpec, template, document_id: str | None = None) -> pipeline.Job:
+    return pipeline.Job(
         kind="excel",
         ext=".xlsx",
         spec=spec,
@@ -64,13 +62,22 @@ async def run(ctx: ToolContext, arguments: dict) -> list:
         build=excel.build,
         reopen=excel.reopen,
         extra_checks=recalc_check,
+        document_id=document_id,
         summary=lambda s: (
             f"{s['sheets']} sheet{'s' if s['sheets'] != 1 else ''}, {s['rows']} rows, {s['formulas']} "
             f"formulas recalculated with no errors, {s['charts']} chart{'s' if s['charts'] != 1 else ''}"
         ),
         preview={"dpi": 60, "max_pages": 4, "columns": 2},
     )
-    return await pipeline.run(ctx, job)
+
+
+async def run(ctx: ToolContext, arguments: dict) -> list:
+    spec = parse(WorkbookSpec, arguments)
+    try:
+        template = templates.load(ctx.settings.templates_dir, "excel", spec.template)
+    except templates.TemplateError as exc:
+        raise ToolError(f"Template problem: {exc}.") from None
+    return await pipeline.run(ctx, make_job(spec, template))
 
 
 TOOL = register(

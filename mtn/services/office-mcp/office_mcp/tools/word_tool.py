@@ -18,22 +18,29 @@ DESCRIPTION = (
 )
 
 
-async def run(ctx: ToolContext, arguments: dict) -> list:
-    spec = parse(WordDocumentSpec, arguments)
-    try:
-        template = templates.load(ctx.settings.templates_dir, "word", spec.template)
-    except templates.TemplateError as exc:
-        raise ToolError(f"Template problem: {exc}.") from None
-    job = pipeline.Job(
+SPEC = WordDocumentSpec
+
+
+def make_job(spec: WordDocumentSpec, template, document_id: str | None = None) -> pipeline.Job:
+    return pipeline.Job(
         kind="word",
         ext=".docx",
         spec=spec,
         template=template,
         build=word.build,
         reopen=word.reopen,
+        document_id=document_id,
         summary=lambda s: f"{s['sections']} sections, {s['tables']} tables, ~{s['words']} words",
     )
-    return await pipeline.run(ctx, job)
+
+
+async def run(ctx: ToolContext, arguments: dict) -> list:
+    spec = parse(WordDocumentSpec, arguments)
+    try:
+        template = templates.load(ctx.settings.templates_dir, "word", spec.template)
+    except templates.TemplateError as exc:
+        raise ToolError(f"Template problem: {exc}.") from None
+    return await pipeline.run(ctx, make_job(spec, template))
 
 
 TOOL = register(
