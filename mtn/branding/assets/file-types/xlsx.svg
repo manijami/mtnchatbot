@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 40 48" role="img" aria-label="XLSX file">
+  <!-- Generic file-type icon (original drawing): page with folded corner and a text label. Not a vendor logo. -->
+  <path d="M4 1h22l11 11v32a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V4a3 3 0 0 1 3-3z" fill="#fff" stroke="#6B6B6B" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M26 1v11h11" fill="none" stroke="#6B6B6B" stroke-width="2" stroke-linejoin="round"/>
+  <rect x="1" y="27" width="30" height="13" rx="2" fill="#1D7044"/>
+  <text x="16" y="36.6" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#fff">XLSX</text>
+</svg>

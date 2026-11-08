@@ -76,6 +76,8 @@ interface:
           rgb-status-info-strong: '189 189 189'
           # Selected sidebar row / tab: yellow-tinted fill, >= 3:1 against the sidebar while
           # the row text (text-primary) keeps AA.
+          # User message bubble: dark MTN-yellow tint (the light mode bubble is pale yellow).
+          rgb-surface-user-message: '74 62 16'
           rgb-surface-nav-selected: '120 100 20'
           rgb-surface-tab-selected: '120 100 20'
           rgb-ring-primary: '255 203 5'
@@ -174,6 +176,7 @@ modelSpecs:
   list:
     - name: 'mtn-document-assistant'
       label: 'MTN Document Assistant'
+      iconURL: '/assets/mtn/avatars/document-assistant.svg'
       description: 'Creates MTN-branded Word, PowerPoint and Excel files. NVIDIA Nemotron Ultra (dev only, synthetic data).'
       default: true
       group: 'MTN'
@@ -218,6 +221,7 @@ modelSpecs:
           - Use synthetic or public information only in this development environment.
     - name: 'mtn-document-assistant-groq'
       label: 'MTN Document Assistant (Groq fallback)'
+      iconURL: '/assets/mtn/avatars/document-assistant.svg'
       description: 'Same assistant on Groq gpt-oss-120b, for when NVIDIA is unavailable (dev only, synthetic data).'
       group: 'MTN'
       order: 2
@@ -262,6 +266,7 @@ modelSpecs:
 
     - name: 'mtn-smart-chat'
       label: 'MTN Smart Chat'
+      iconURL: '/assets/mtn/avatars/smart-chat.svg'
       description: 'General chat. Each message goes to the fastest model that can answer it well (demo, synthetic data only).'
       group: 'MTN'
       order: 3

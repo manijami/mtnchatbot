@@ -15,3 +15,26 @@
     margin-bottom: 3rem;
   }
 }
+
+/*
+ * Stage A (MTN UI/UX) — composer accents from the MTN reference layout. There is no theme token
+ * for these two elements alone (the send slot uses surface-inverted, the composer border uses
+ * border-light; both tokens are shared with many other components), so they are scoped here to
+ * upstream's stable test ids. If upstream renames them, the rules stop matching and the
+ * composer falls back to the theme. MTN yellow = #FFCB05; black icon on yellow is 13.7:1.
+ */
+:root {
+  --mtn-yellow: 255 203 5;
+  --mtn-yellow-hover: 255 221 92;
+}
+[data-testid='composer-surface'] {
+  border-color: rgb(var(--mtn-yellow));
+  border-width: 2px;
+}
+[data-testid='send-button'] {
+  background-color: rgb(var(--mtn-yellow));
+  color: rgb(0 0 0);
+}
+[data-testid='send-button']:hover:not(:disabled) {
+  background-color: rgb(var(--mtn-yellow-hover));
+}

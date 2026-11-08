@@ -71,7 +71,16 @@ via `otel/` and the langfuse-fanout compose files.
 
 ## Upgrading the upstream base
 
-The local api image is three layers: **upstream LibreChat** (pinned by digest) → **branding**
+> **Since 2026-11-08 (MTN UI/UX phase) the local api image is built from this repo's source**:
+> `docker build -f Dockerfile -t mtn-librechat-src:local .` (context rules in
+> `Dockerfile.dockerignore`), then `docker compose build api` adds the branding layer on top
+> (`BASE_IMAGE: mtn-librechat-src:local` in `mtn/deploy/compose.office.yml`). Upgrading upstream
+> is then a normal merge plus rebuild; the overlay and fingerprint guard below are no longer used
+> locally. Measured on the dev Mac (8 GB Docker VM, full stack running): cold build 655 s
+> (`npm ci` 224 s, frontend build 188 s, image export 73 s), peak VM memory 4.4 GB, image 2.75 GB
+> (upstream 2.71 GB); the branding layer takes about 3 s.
+
+Previously, the local api image was three layers: **upstream LibreChat** (pinned by digest) → **branding**
 (`mtn/branding/Dockerfile`) → **core-deviation overlay** (`mtn/deploy/core.Dockerfile`, the backend
 build of our MTN core changes). The overlay replaces built files, so it is only valid on the exact
 upstream build our source is based on.
@@ -324,6 +333,37 @@ Record every deviation from upstream here with rationale, so future upstream mer
   published list prices, not in currency.
 - _2026-11-08_ — **Local dev:** `SCHEDULES_SINGLE_PROCESS=true` in `.env` (single API replica, no
   Redis) so the schedules engine arms. Not for multi-replica deployments.
+- _2026-11-08_ — **Router fixes (branch `mtn/ui-brand`).** router-lens answers Word/PowerPoint/Excel
+  requests in Smart Chat with a pointer to the Document Assistant, caps the wait for an answer
+  (45 s to first response, 45 s of silence mid-stream; both configurable), and replaces images in
+  earlier turns with a text note. **Vision tier (approved):** turns whose latest message has an
+  image skip the judge and go to NVIDIA `nemotron-3-nano-omni-30b-a3b-reasoning` through a
+  Switchyard passthrough route (`mtn-smart-vision`); footer and feed show "vision tier"; vision
+  turns are left out of the cost index. Synthetic images only.
+- _2026-11-08_ — **MTN UI/UX phase (plan approved).** Stages A (config/CSS) → B (layout) → C (Office
+  card, preview panel, chips). MTN components live in `client/src/mtn/` behind a new
+  **`interface.mtnLayout`** `configSchema` flag (default `false`: upstream look and behaviour).
+  Sidebar "Projects" links to LibreChat's existing Projects; no notifications icon; help opens
+  `HELP_AND_FAQ_URL`; "Internal workspace" is a static label. Stage C adds an "Open in Document
+  Assistant" chip to Smart Chat's Office reply (client-side; starts a new Document Assistant chat
+  with the request pre-filled).
+- _2026-11-08_ — **CORE DEVIATION #2 — Office preview route** (approved, Stage C):
+  `GET /api/files/:id/preview`. Returns rendered pages (PNG; PDF where useful) for Word/PowerPoint
+  files and a JSON table summary for Excel, produced by office-mcp next to each version. Conditions:
+  - Owner-checked with the existing file access check; anyone else gets 404.
+  - Preview data goes only to the browser: it is never added to message content, tool results or
+    anything sent to a model.
+  - Logic in `packages/api`; `/api` has wiring only; inert unless `interface.mtnLayout` is on.
+  - Tests: owner 200, other user 404, and no preview data in the model request.
+- _2026-11-08_ — **Stage A composer accents in `mtn-overrides.css`.** The yellow composer border
+  and yellow send button have no dedicated theme token (the tokens they use are shared with many
+  components), so they are scoped to upstream's `data-testid="composer-surface"` and
+  `data-testid="send-button"`. Exception to "colours stay in `interface.theme`"; falls back to
+  the theme if upstream renames the ids.
+- _2026-11-08_ — **Local image built from source (replaces the overlay).** The api image is built
+  from the repo with the upstream `Dockerfile`, then the branding layer on top. A new
+  `Dockerfile.dockerignore` (BuildKit reads it instead of `.dockerignore` for `./Dockerfile`)
+  keeps `mtn/` (incl. the licensed fonts), `uploads/`, `logs/` and `images/` out of the image.
 
 ## Security & secrets
 

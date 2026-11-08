@@ -1,0 +1,33 @@
+# MTN: build-context rules for the upstream ./Dockerfile (BuildKit reads <Dockerfile>.dockerignore
+# instead of .dockerignore). Upstream rules first, unchanged; MTN additions below.
+**/.circleci
+**/.editorconfig
+**/.dockerignore
+**/.git
+**/.DS_Store
+**/.vscode
+**/node_modules
+
+# Specific patterns to ignore
+data-node
+meili_data*
+librechat*
+Dockerfile*
+docs
+
+# Ignore all hidden files
+.*
+
+# --- MTN additions ---
+# Local runtime data from the dev stack (mounted as volumes at run time, never baked in).
+uploads
+logs
+images
+# MTN config, branding (incl. gitignored licensed fonts in mtn/branding/private), services and
+# router: each has its own build context; none belongs in the LibreChat image.
+mtn
+# Not needed at run time.
+e2e
+helm
+otel
+payload.json

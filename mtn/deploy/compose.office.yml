@@ -4,17 +4,17 @@
 # Relative paths resolve against the project directory (the repo root).
 services:
   api:
-    # Office files reach the chat through the MTN MCP file-outputs core change, so api runs the
-    # core-deviation overlay (mtn/deploy/core.Dockerfile) on top of the branding image.
-    # Build order: branding image first (docker build mtn/branding -t mtn-librechat:local),
-    # then host dists (npm run build:data-provider && npm run build:api), then
-    # `docker compose build api`.
-    image: mtn-librechat-core:local
+    # api runs LibreChat built from THIS repo (so every MTN core deviation is included), with
+    # the branding layer on top. Build order (from the repo root):
+    #   1. docker build -f Dockerfile -t mtn-librechat-src:local .
+    #      (context rules: Dockerfile.dockerignore keeps mtn/, uploads/, logs/ out)
+    #   2. docker compose build api   (branding layer: mtn/branding/Dockerfile)
+    # The old core-deviation overlay (mtn/deploy/core.Dockerfile) is no longer used locally.
+    image: mtn-librechat:local
     build:
-      context: .
-      dockerfile: mtn/deploy/core.Dockerfile
+      context: ./mtn/branding
       args:
-        BASE_IMAGE: mtn-librechat:local
+        BASE_IMAGE: mtn-librechat-src:local
     pull_policy: never
     networks:
       - default
