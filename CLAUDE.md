@@ -168,16 +168,25 @@ Follow `AGENTS.md` → "Testing" and "Verification". In short:
    keeps email login for admin-provisioned accounts (`create-user`/`invite-user`). Configure roles/
    permissions and the Admin Panel. Verify auth-cache invalidation rules.
 4. **Phase 3 — Infrastructure & data.** Point Mongo, Meilisearch, pgvector/RAG, and file storage
-   (`s3`/`azure_blob`) at MTN-managed services. Confirm Code Interpreter/RAG connectivity.
-5. **Phase 4 — Office document generation.**
-   - *Step 1 — Self-hosted Code Interpreter.* Run the `librechat-code` service, set
-     `LIBRECHAT_CODE_BASEURL` and `LIBRECHAT_CODE_API_KEY`, and enable the `execute_code`
-     capability for agents. Build the sandbox image with `python-docx`, `python-pptx`,
-     `openpyxl`, `pandas` and `matplotlib` preinstalled.
-   - *Step 2 — Template-driven MCP tools.* Add MCP tools backed by versioned MTN templates:
-     `create_word_document`, `create_powerpoint_presentation`, `create_excel_workbook`,
-     `revise_office_file`. Include output file validation, previews, revision in chat, and
-     per-user file ownership.
+   (`s3`/`azure_blob`) at MTN-managed services. Confirm RAG connectivity. Also (moved/added
+   2026-11-08):
+   - **Self-hosted Code Interpreter** (ClickHouse/code-interpreter, Apache-2.0) on a **Linux host
+     with KVM** (libkrun microVM isolation). Connect via `LIBRECHAT_CODE_BASEURL` and per-user
+     `CODEAPI_JWT_*` auth; pin `sha-` image tags; no sandbox internet. Sandbox image must include
+     `python-docx`, `python-pptx`, `openpyxl`, `pandas`, `matplotlib`.
+   - **Requirement: Python data analysis of uploaded spreadsheets** (via `execute_code`), which
+     depends on the Code Interpreter above.
+   - **office-mcp storage:** move its SQLite job/version store to managed Postgres or Mongo for
+     multi-replica production.
+   - **Redis streams** for multi-replica API (replaces `SCHEDULES_SINGLE_PROCESS`).
+5. **Phase 4 — Office document generation** (template-driven MCP tools, no Code Interpreter).
+   `mtn/services/office-mcp/` (Python, streamable HTTP, internal network, bearer-token auth,
+   owner from `{{LIBRECHAT_USER_ID}}`): `create_word_document`, `create_powerpoint_presentation`,
+   `create_excel_workbook`, `revise_office_file`, `get_generation_status`. Versioned MTN
+   templates (`mtn/templates/`), validation (reopen, MIME, bounds, LibreOffice recalc, preview),
+   v1/v2 versioning, per-user ownership. Files reach the chat through the MCP file-outputs core
+   change (decisions log). `revise_office_file` edits only files the same user generated; editing
+   **employee-uploaded** Office files is a later item.
 6. **Phase 5 — MTN-specific capability (only if config can't express it).** Any new backend lever
    lands in `packages/api` with a `configSchema` field + backward-compatible default; `/api` stays
    wiring. MCP servers / custom tools / agents for MTN knowledge sources.
@@ -228,6 +237,24 @@ Record every deviation from upstream here with rationale, so future upstream mer
   `configSchema` lever (core change) and relying on locally installed fonts. Font files and the
   official logo stay in gitignored `mtn/branding/private/`. **Open:** MTN must confirm that the
   Newlyn Works licence covers web embedding for this app.
+- _2026-11-08_ — **Phase 4 design (approved):** Office generation is a Python MCP server
+  (`mtn/services/office-mcp/`) that turns validated JSON into documents from versioned templates.
+  No model-written code runs. The **Code Interpreter is deferred to Phase 3** (KVM host): this dev
+  Mac's Docker VM has no `/dev/kvm`, and the upstream project labels NsJail-only mode
+  "not for untrusted code". The agent's model is configurable (Groq dev tier now, MTN-approved
+  provider later) without code changes. The official logo is added at generation time from
+  gitignored `mtn/branding/private/`; output is logo-free when it is absent. office-mcp keeps
+  SQLite for dev, with retention matching LibreChat's file retention.
+- _2026-11-08_ — **FIRST MTN CORE DEVIATION — MCP file outputs** (approved). Upstream v0.8.9-rc1
+  turns non-image MCP embedded-resource blobs into a text summary, so an MCP tool cannot deliver a
+  `.docx`/`.pptx`/`.xlsx` as a chat attachment, and upstream `dev` has no equivalent. Added an
+  opt-in per-server `fileOutputs` config (default **off**). Conditions:
+  - It is honoured **only for admin-defined `librechat.yaml` servers**; user-added (UI/DB) servers
+    never return files, even if they set the field. This is enforced in code and tested.
+  - Files are saved through the existing file pipeline and `fileStrategy` as normal user-owned
+    files, so access checks, per-user limits and the Files list apply.
+  - Logic lives in `packages/api`; `/api` has wiring only.
+  - Upstream proposal: `docs/mtn/upstream-proposal-mcp-file-outputs.md`.
 - _2026-11-08_ — **Local dev:** `SCHEDULES_SINGLE_PROCESS=true` in `.env` (single API replica, no
   Redis) so the schedules engine arms. Not for multi-replica deployments.
 
