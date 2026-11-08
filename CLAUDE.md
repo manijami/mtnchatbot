@@ -114,8 +114,21 @@ Follow `AGENTS.md` → "Testing" and "Verification". In short:
 - **Branding / identity**
   - App title via `APP_TITLE`; footer via `CUSTOM_FOOTER`; help link via `HELP_AND_FAQ_URL`.
   - Welcome copy via `interface.customWelcome` in `librechat.yaml`.
-  - Logo/favicon: replace assets under `client/public/assets/` (e.g. `logo.svg`,
-    `favicon-32x32.png`, `icon-192x192.png`, `maskable-icon.png`, `apple-touch-icon-180x180.png`).
+  - **Where MTN branding lives (isolated from upstream files):**
+    - `mtn/config/librechat.yaml`: tracked source of truth for the LibreChat config. The root
+      `librechat.yaml` (gitignored) is a symlink to it, and the compose override mounts it.
+    - `mtn/branding/Dockerfile`: a thin **branding image** (`mtn-librechat:local`) built `FROM` the
+      unchanged upstream image. It copies the logo, favicons, PWA manifest and MTN Brighter Sans
+      into `/app/client/dist`, links `fonts/mtn-fonts.css` from `index.html`, and sets `<title>`.
+      `client/public/assets/` stays upstream-identical. Rebuild with `docker compose build api`
+      after every base-image update.
+    - `mtn/branding/private/` (**gitignored, never commit**): licensed MTN Brighter Sans `.otf`
+      files (© Newlyn Works), the official logo source files, and `generated/` icons derived from
+      them. Distribute out-of-band (secret store / secure share), not via git.
+    - `mtn/branding/assets/` + `manifest.webmanifest` + `fonts/mtn-fonts.css` (tracked): placeholder
+      icons used when `private/` is absent, the manifest, and the font-face CSS (no font data).
+  - Copy, URLs and policy text are still **PLACEHOLDERS** (marked "PLACEHOLDER"). The logo, icons
+    and font are now official MTN assets, supplied 2026-11-08.
   - **Theme:** use `interface.theme` — a bundled name (`librechat`, `clickhouse`) **or an inline
     definition** with `rgb-*` color tokens per light/dark mode and `appearance` roles
     (`controlRadius`, etc.). This is the preferred path for the MTN palette (brand yellow/black).
@@ -191,6 +204,17 @@ Record every deviation from upstream here with rationale, so future upstream mer
   on MTN.
 - _2026-11-08_ — **Phase 1 starts with placeholders:** logo, font files, and policy/help URLs use
   clearly marked placeholders; do not wait for MTN brand assets. Swap in real assets when received.
+- _2026-11-08_ — **Phase 1 layout:** MTN config and brand assets live under `mtn/` and reach the
+  app through a branding image layered on the upstream image (see below), not by editing
+  `client/public/assets/`, so there is no upstream file diff. Inline theme is a **partial** token set (unnamed tokens keep LibreChat's
+  defaults). In dark mode, yellow is not used behind the send button, because that would force a
+  dark `text-on-status` label, which also sits on the red/status fills.
+- _2026-11-08_ — **Brand fonts via a branding image (option 1 of 3, chosen by the user):** there is
+  no config lever for extra `@font-face` files, so `mtn/branding/Dockerfile` layers fonts, assets
+  and an `index.html` stylesheet link onto the unchanged upstream image. Rejected: a new
+  `configSchema` lever (core change) and relying on locally installed fonts. Font files and the
+  official logo stay in gitignored `mtn/branding/private/`. **Open:** MTN must confirm that the
+  Newlyn Works licence covers web embedding for this app.
 - _2026-11-08_ — **Local dev:** `SCHEDULES_SINGLE_PROCESS=true` in `.env` (single API replica, no
   Redis) so the schedules engine arms. Not for multi-replica deployments.
 

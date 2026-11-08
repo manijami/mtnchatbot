@@ -1,6 +1,6 @@
 # MTN Employee AI Assistant — Handover Report
 
-**Last updated:** 2026-11-08 (Phase 0 completed)
+**Last updated:** 2026-11-08 (Phase 0 accepted; Phase 1 in progress, with official logo and font live)
 **Prepared for:** external reviewer / incoming contributor
 **Scope:** state of this checkout after Phase 0 — an **unchanged** upstream LibreChat running
 locally via Docker, plus the MTN project guide. **No LibreChat source code has been modified.**
@@ -63,8 +63,8 @@ this report are **resolved**.
 | Path | Ignored by | Purpose |
 |---|---|---|
 | `.env` | `.gitignore:83` (`.env*`) | Created from `.env.example`, mode `600`. See §5. |
-| `librechat.yaml` | `.gitignore:79` | Minimal Phase 0 config. See §5. |
-| `docker-compose.override.yml` | `.gitignore:115` | Mounts `./librechat.yaml` into the `api` container (the base compose file does not). Follows `docker-compose.override.yml.example`; no image/service changes. |
+| `librechat.yaml` | `.gitignore:79` | Since Phase 1: a **symlink** to the tracked `mtn/config/librechat.yaml` (see §9). |
+| `docker-compose.override.yml` | `.gitignore:115` | Mounts only, with no image or service changes: `mtn/config/librechat.yaml` → `/app/librechat.yaml`, plus the Phase 1 placeholder assets over `/app/client/dist/...` (see §9 for the full file). |
 | `uploads/`, `logs/`, `images/` | `.gitignore` | Runtime bind mounts created by the stack. |
 | `.claude/helpers/*`, `.claude/settings.local.json*` | `/.claude/` | Claude Code hook scripts / local permissions (unchanged in Phase 0). |
 
@@ -82,7 +82,7 @@ key demo value.
 | Phase | Description | Status |
 |---|---|---|
 | 0 — Baseline & environment | Clean local run, version/commit/remote confirmed | **Done** (this report) |
-| 1 — Configuration & branding | Title, footer, help URL, welcome, privacy/ToS, MTN theme, assets; curate `modelSpecs` later | Not started — waiting on MTN brand assets |
+| 1 — Configuration & branding | Title, footer, help URL, welcome, privacy/ToS, MTN theme, assets; curate `modelSpecs` later | **In progress**, using placeholders (§9). Next in execution order after this: Phase 4 |
 | 2 — Identity & access | OIDC + SAML as main way in; prod `ALLOW_REGISTRATION=false`; roles, Admin Panel | Not started — waiting on MTN IdP details |
 | 3 — Infrastructure & data | Mongo/Meili/pgvector/RAG/file storage on MTN-managed services | Not started |
 | 4 — Office document generation | Self-hosted Code Interpreter + template-driven Office MCP tools | Not started (new) |
@@ -129,7 +129,7 @@ the **Groq** custom endpoint, model `openai/gpt-oss-120b`, as test user `phase0t
 | Observability (OTel / Langfuse) | v0.8.9-rc1 | `otel/` config | Not configured | Generate a trace | **Not tested**. |
 | S3/CloudFront storage | v0.8.9-rc1 | AWS creds, `fileStrategy` | Not configured (Phase 3) | Upload, serve via CDN | **Not tested**. |
 | Multilingual UI | v0.8.9-rc1 (core) | None | Default-available | Switch language | **Not tested** — out of Phase 0 scope. |
-| Deployment theming | v0.8.9-rc1 | `interface.theme` | Not configured (Phase 1) | Apply inline theme | **Not tested** — no branding yet by design. |
+| Deployment theming | v0.8.9-rc1 | `interface.theme` | Dev: inline **MTN placeholder** theme | Apply inline theme, check light and dark | **Tested OK** (Phase 1): theme accepted by the server validator; light mode showed a black send button, yellow-tint user bubble and selected nav; dark mode showed a yellow focus ring. Brand font **not loaded** (known gap, §9). |
 | Manual context compaction | v0.8.9-rc1 | None | Default-available | Trigger summarize-only turn | **Not tested** — out of Phase 0 scope. |
 
 **Phase 0 acceptance (all passed):** register test user ✅ · send chat message ✅ · streaming ✅ ·
@@ -155,7 +155,7 @@ Created by copying `.env.example` and changing only:
 Everything else is the upstream `.env.example` default (e.g. `PORT=3080`, `SEARCH=false`, provider
 keys `user_provided`).
 
-### `librechat.yaml` (gitignored) — full content, no secrets
+### `librechat.yaml` at end of Phase 0 — no secrets (superseded by `mtn/config/librechat.yaml`, §9)
 
 ```yaml
 version: 1.3.18
@@ -270,3 +270,87 @@ nothing to commit, working tree clean
 - `.env`, `librechat.yaml`, `docker-compose.override.yml` confirmed gitignored and not committed.
 - This §8 was written after the commit, so this report now has one uncommitted change; commit
   it with the next MTN docs change (or amend before the first push).
+
+---
+
+## 9. Phase 1 — Configuration & branding (in progress)
+
+Started 2026-11-08 with placeholders. The **official MTN logo and MTN Brighter Sans fonts** were
+supplied the same day and are now live. **No LibreChat source changed.** Everything is config, env,
+and a thin branding image layered on the unchanged upstream image.
+
+### Brand inventory
+
+| Item | Where | Current value | Status / next |
+|---|---|---|---|
+| App title | `.env` `APP_TITLE` | `MTN Employee AI` (likely final) | Confirm with MTN comms |
+| Footer | `.env` `CUSTOM_FOOTER` | "MTN Employee AI — internal use only. AI can make mistakes… (PLACEHOLDER footer)" | Approved footer copy |
+| Help & FAQ | `.env` `HELP_AND_FAQ_URL` | `https://example.com/mtn-employee-ai/help-placeholder` | MTN intranet help page |
+| Welcome | `interface.customWelcome` | "Welcome to MTN Employee AI, {{user.name}}. How can I help today?" | Approved copy |
+| Privacy policy | `interface.privacyPolicy.externalUrl` | `https://example.com/…/privacy-placeholder` | MTN privacy notice URL |
+| Terms of use | `interface.termsOfService` | `example.com` URL + **modal acceptance** with placeholder text | MTN Legal text/URL |
+| Theme | `interface.theme` (inline, `MTN (placeholder)`) | MTN yellow `#FFCB05` + black, partial token set | Exact palette from MTN brand |
+| Font | `appearance.fontFamily` + `mtn/branding/fonts/mtn-fonts.css` + `private/fonts/*.otf` | **Official MTN Brighter Sans** (12 faces, 250–800 + italics), served from the branding image | ✅ Live. **Open:** MTN to confirm the Newlyn Works licence covers web embedding |
+| Logo | `private/generated/logo.svg` (from `private/logo/yello_logo.jpg`) | **Official MTN oval on yellow**, 256px raster inside an SVG | ✅ Live. Ask MTN brand for a vector SVG (only raster JPEGs were supplied; `white_logo.png` is actually a JPEG on white, not transparent) |
+| Favicons / app icons | `private/generated/*.png` (16, 32, 180, 192, 512 maskable) | Derived from the official yellow logo | ✅ Live. Tracked `mtn/branding/assets/` placeholders are the fallback for fresh clones |
+| PWA manifest | `mtn/branding/manifest.webmanifest` | name "MTN Employee AI", theme colour `#FFCB05` | Confirm |
+
+### How it is wired
+
+- `mtn/config/librechat.yaml` (tracked) is the config source of truth. The root `librechat.yaml`
+  is a gitignored symlink to it.
+- The upstream `.gitignore:79` rule `librechat.yaml` matches at any depth, so the first commit of
+  `mtn/config/librechat.yaml` needs `git add -f` (as with `CLAUDE.md`). After that, changes are
+  tracked normally.
+- **Branding image** `mtn-librechat:local` = `mtn/branding/Dockerfile` built FROM the unchanged
+  upstream `librechat-dev:latest`. It copies the logo, icons and manifest into `/app/client/dist`,
+  adds the `.otf` files and `mtn-fonts.css` under `assets/fonts/`, links the CSS from
+  `index.html`, sets `<title>`, and drops the stale `index.html.br/.gz`. It uses a BuildKit bind
+  mount, so private files exist only in their final location. Without `private/` it falls back to
+  the placeholders and no font.
+- **Licensed files are never in git:** `mtn/branding/private/` is gitignored (new `.gitignore`
+  entry). It holds the fonts and logos the user supplied (moved there from `docs/logo_and_fonts/`)
+  and `generated/` icons. Hand them over through a secure channel. **Do not push
+  `mtn-librechat:local` to any public registry**, because it contains the fonts and logo.
+- **Rebuild after every upstream image update:** `docker compose pull && docker compose build api && docker compose up -d`.
+- Local `docker-compose.override.yml` (gitignored, recreate on other machines):
+
+```yaml
+services:
+  api:
+    image: mtn-librechat:local
+    build:
+      context: ./mtn/branding
+      args:
+        BASE_IMAGE: registry.librechat.ai/librechat-ai/librechat-dev:latest
+    pull_policy: never
+    volumes:
+      - type: bind
+        source: ./mtn/config/librechat.yaml
+        target: /app/librechat.yaml
+        read_only: true
+```
+
+### Verification (2026-11-08, browser + HTTP)
+
+| Check | Result |
+|---|---|
+| Server accepts config + inline theme | ✅ No validation errors; `/api/config` returns `appTitle: "MTN Employee AI"` and theme `MTN (placeholder)` with light+dark modes |
+| Served assets | ✅ `assets/logo.svg` byte-identical to `private/generated/logo.svg`; fonts CSS and `.otf` files return 200 (`font/otf`) |
+| Tab title | ✅ "MTN Employee AI", now also in the static `index.html` `<title>` (set by the branding image) |
+| Terms modal | ✅ Shown on first visit with placeholder title/content; accepted by the test user |
+| Welcome | ✅ "Welcome to MTN Employee AI, Phase0 Tester. How can I help today?" |
+| Footer + Privacy/Terms links | ✅ Placeholder footer with both links |
+| Help & FAQ | ✅ Opens `https://example.com/mtn-employee-ai/help-placeholder` |
+| Light theme | ✅ Black send button, yellow-tint user bubble, yellow selected nav item |
+| Dark theme | ✅ Yellow focus ring. Test user's theme setting set back to System afterwards |
+| Login logo | ✅ Official MTN oval on yellow (after a hard reload; static assets are cached for 2 days, plus a service worker) |
+| Brand font | ✅ Computed body/heading font is `"MTN Brighter Sans", Inter, …`; `document.fonts` shows faces 300, 400 and 500–600 loaded on the login page |
+| Lighthouse | **Not run.** `npm run lighthouse` needs `npm ci` and a local build, which haven't been done on this machine yet |
+
+### Phase 1 known gaps
+
+- **Font licence** for web embedding is unconfirmed (Newlyn Works). **No vector logo**, only raster JPEGs.
+- **User avatar initials** keep LibreChat's generated colours. `rgb-avatar-fill` does not affect
+  them.
+- **`modelSpecs` curation** is still deferred until the primary provider is chosen.

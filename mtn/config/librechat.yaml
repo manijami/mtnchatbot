@@ -1,0 +1,105 @@
+# MTN Employee AI — LibreChat config (tracked source of truth).
+# Mounted into the api container at /app/librechat.yaml by docker-compose.override.yml.
+# No secrets here: keys are referenced as ${ENV_VAR} and live in .env.
+#
+# Phase 1 (branding) uses PLACEHOLDERS, marked "PLACEHOLDER" below. Swap them for
+# MTN-approved values when brand/legal deliver them; no code change is needed.
+version: 1.3.18
+
+cache: true
+
+interface:
+  # PLACEHOLDER copy — confirm wording with MTN internal comms.
+  customWelcome: 'Welcome to MTN Employee AI, {{user.name}}. How can I help today?'
+
+  # PLACEHOLDER URLs (example.com is reserved for documentation). Replace with MTN policy pages.
+  privacyPolicy:
+    externalUrl: 'https://example.com/mtn-employee-ai/privacy-placeholder'
+    openNewTab: true
+  termsOfService:
+    externalUrl: 'https://example.com/mtn-employee-ai/terms-placeholder'
+    openNewTab: true
+    modalAcceptance: true
+    modalTitle: 'MTN Employee AI — Acceptable Use (PLACEHOLDER)'
+    modalContent: |
+      **PLACEHOLDER — not MTN-approved text.** Final terms will come from MTN Legal.
+
+      - This assistant is for MTN employees and approved contractors only.
+      - Do not enter customer personal data, credentials, or confidential information
+        unless the connected model provider is approved by MTN for that data class.
+      - AI output can be wrong. Check facts before relying on or sharing them.
+      - Usage may be logged for security, audit, and service improvement.
+
+  # MTN placeholder theme. Palette: MTN yellow #FFCB05 + black (public brand colours;
+  # exact values to be confirmed by MTN brand). Partial token set: anything not named
+  # here keeps the LibreChat default, so contrast-checked defaults still apply.
+  # Light: black primary actions, yellow tints for selection. Dark: yellow for focus,
+  # links and avatars only (yellow behind the send button would force a dark
+  # `text-on-status` label, which also sits on the red/status fills).
+  theme:
+    version: 1
+    name: 'MTN (placeholder)'
+    modes:
+      light:
+        colors:
+          rgb-surface-submit: '0 0 0'
+          rgb-surface-submit-hover: '51 51 51'
+          rgb-button-primary: '0 0 0'
+          rgb-button-primary-hover: '51 51 51'
+          rgb-accent-primary: '0 0 0'
+          rgb-accent-primary-hover: '51 51 51'
+          rgb-border-field-focus: '0 0 0'
+          rgb-surface-user-message: '255 243 196'
+          rgb-surface-nav-selected: '255 227 128'
+          rgb-surface-tab-selected: '255 227 128'
+          rgb-avatar-fill: '255 203 5'
+          rgb-avatar-text: '0 0 0'
+        appearance:
+          # MTN Brighter Sans is loaded by the branding image (mtn/branding/Dockerfile); Inter is the fallback.
+          fontFamily: '"MTN Brighter Sans", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif'
+      dark:
+        colors:
+          rgb-ring-primary: '255 203 5'
+          rgb-focus-outline: '255 203 5'
+          rgb-focus-control: '255 203 5'
+          rgb-border-field-focus: '255 203 5'
+          rgb-link: '255 203 5'
+          rgb-link-hover: '255 221 92'
+          rgb-link-prose: '255 203 5'
+          rgb-avatar-fill: '255 203 5'
+          rgb-avatar-text: '0 0 0'
+        appearance:
+          fontFamily: '"MTN Brighter Sans", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif'
+
+  # Upstream default interface settings (unchanged from Phase 0)
+  fileSearch: true
+  modelSelect: true
+  parameters: true
+  presets: true
+  bookmarks: true
+  multiConvo: true
+  agents: true
+  fileCitations: true
+
+endpoints:
+  custom:
+    # DEV/TEST ONLY — Groq is not MTN-approved. Never send real MTN data here (see CLAUDE.md).
+    - name: 'groq'
+      apiKey: '${GROQ_API_KEY}'
+      baseURL: 'https://api.groq.com/openai/v1/'
+      models:
+        default:
+          - 'openai/gpt-oss-120b'
+          - 'openai/gpt-oss-20b'
+        fetch: true
+      titleConvo: true
+      titleModel: 'openai/gpt-oss-20b'
+      modelDisplayLabel: 'Groq'
+
+# Groq's chat API rejects native PDF parts (400), so deliver PDFs as extracted text.
+fileConfig:
+  endpoints:
+    groq:
+      defaultLLMDeliveryPath:
+        overrides:
+          'application/pdf': 'text'

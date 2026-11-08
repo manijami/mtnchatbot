@@ -1,0 +1,9 @@
+The MTN Brighter Sans font files are NOT kept here and must never be committed.
+
+- Licensed font files (© Newlyn Works Limited) live in mtn/branding/private/fonts/ (gitignored).
+  Get them from the MTN brand team or the project's secure share.
+- This folder holds only mtn-fonts.css (tracked, no font data): one @font-face family with real
+  weights 250–900 and italics.
+- mtn/branding/Dockerfile copies the .otf files and this CSS into the image and links the CSS
+  from index.html. Without private/fonts/, the build skips the font and the theme falls back to Inter.
+- Open: MTN to confirm the licence covers web embedding.

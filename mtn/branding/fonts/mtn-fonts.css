@@ -1,0 +1,22 @@
+/*
+ * MTN Brighter Sans — one family, real weight/style axes, so the theme's
+ * `fontFamily: "MTN Brighter Sans", Inter, ...` picks the correct face for each
+ * weight (no synthetic bold/italic). Replaces the vendor mtnfont.css, which declared
+ * every face as its own family at font-weight: normal.
+ *
+ * This file is tracked; the .otf files are NOT (licensed, Newlyn Works Limited —
+ * kept in mtn/branding/private/fonts/, gitignored). The branding image copies both
+ * into /app/client/dist/assets/fonts/ and links this stylesheet from index.html.
+ */
+@font-face { font-family: 'MTN Brighter Sans'; font-style: normal; font-weight: 250; font-display: swap; src: url('MTNBrighterSans-ExtraLight.otf') format('opentype'); }
+@font-face { font-family: 'MTN Brighter Sans'; font-style: italic; font-weight: 250; font-display: swap; src: url('MTNBrighterSans-ExtraLightItalic.otf') format('opentype'); }
+@font-face { font-family: 'MTN Brighter Sans'; font-style: normal; font-weight: 300; font-display: swap; src: url('MTNBrighterSans-Light.otf') format('opentype'); }
+@font-face { font-family: 'MTN Brighter Sans'; font-style: italic; font-weight: 300; font-display: swap; src: url('MTNBrighterSans-LightItalic.otf') format('opentype'); }
+@font-face { font-family: 'MTN Brighter Sans'; font-style: normal; font-weight: 400; font-display: swap; src: url('MTNBrighterSans-Regular.otf') format('opentype'); }
+@font-face { font-family: 'MTN Brighter Sans'; font-style: italic; font-weight: 400; font-display: swap; src: url('MTNBrighterSans-RegularItalic.otf') format('opentype'); }
+@font-face { font-family: 'MTN Brighter Sans'; font-style: normal; font-weight: 500 600; font-display: swap; src: url('MTNBrighterSans-Medium.otf') format('opentype'); }
+@font-face { font-family: 'MTN Brighter Sans'; font-style: italic; font-weight: 500 600; font-display: swap; src: url('MTNBrighterSans-MediumItalic.otf') format('opentype'); }
+@font-face { font-family: 'MTN Brighter Sans'; font-style: normal; font-weight: 700; font-display: swap; src: url('MTNBrighterSans-Bold.otf') format('opentype'); }
+@font-face { font-family: 'MTN Brighter Sans'; font-style: italic; font-weight: 700; font-display: swap; src: url('MTNBrighterSans-BoldItalic.otf') format('opentype'); }
+@font-face { font-family: 'MTN Brighter Sans'; font-style: normal; font-weight: 800 900; font-display: swap; src: url('MTNBrighterSans-ExtraBold.otf') format('opentype'); }
+@font-face { font-family: 'MTN Brighter Sans'; font-style: italic; font-weight: 800 900; font-display: swap; src: url('MTNBrighterSans-ExtraBoldItalic.otf') format('opentype'); }

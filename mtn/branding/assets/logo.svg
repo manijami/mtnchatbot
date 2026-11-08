@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="MTN Employee AI (placeholder logo)">
+  <!-- PLACEHOLDER logo for MTN Employee AI. Not MTN's official mark. Replace with the
+       MTN-approved asset (same filename) when brand assets are delivered. -->
+  <rect width="128" height="128" rx="26" fill="#FFCB05"/>
+  <text x="64" y="66" text-anchor="middle" dominant-baseline="middle"
+        font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="40" fill="#000">MTN</text>
+  <text x="64" y="98" text-anchor="middle" font-family="Helvetica, Arial, sans-serif"
+        font-weight="700" font-size="16" fill="#000">AI</text>
+</svg>
