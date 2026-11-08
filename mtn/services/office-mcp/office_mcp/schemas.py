@@ -12,7 +12,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from .tools import ToolError
+from .errors import ToolError
 
 # Characters XML 1.0 cannot carry; models occasionally emit them.
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f￾￿]")
@@ -318,4 +318,218 @@ POWERPOINT_INPUT_SCHEMA = {
         "filename": {**_STR, "description": "Optional file name without extension."},
     },
     "required": ["template", "title", "slides"],
+}
+
+
+# --------------------------------------------------------------------------------------------
+# Excel
+
+ColumnType = Literal["text", "number", "integer", "currency", "percent", "date", "formula"]
+_SHEET_NAME_BAD = re.compile(r"[\[\]:*?/\\]")
+_PLACEHOLDER = re.compile(r"\{([^{}]+)\}")
+_FUNCTION = re.compile(r"([A-Za-z][A-Za-z0-9._]*)\s*\(")
+ALLOWED_FUNCTIONS = frozenset(
+    """ABS AND AVERAGE AVERAGEIF AVERAGEIFS CEILING CONCAT CONCATENATE COUNT COUNTA COUNTBLANK
+    COUNTIF COUNTIFS DATE DATEDIF DAY DAYS EDATE EOMONTH FLOOR IF IFERROR IFS INDEX INT ISBLANK
+    ISNUMBER LEFT LEN LOWER MATCH MAX MAXIFS MEDIAN MID MIN MINIFS MONTH NETWORKDAYS NOT NOW OR
+    PROPER RANK RIGHT ROUND ROUNDDOWN ROUNDUP SUM SUMIF SUMIFS SUMPRODUCT TEXT TODAY TRIM UPPER
+    VALUE VLOOKUP WEEKDAY WORKDAY XLOOKUP YEAR""".split()
+)
+
+
+class ExcelColumn(Strict):
+    name: Annotated[str, Field(min_length=1, max_length=60)]
+    type: ColumnType = "text"
+    formula: Annotated[str, Field(max_length=400)] | None = None
+    allowed_values: Annotated[list[Annotated[str, Field(min_length=1, max_length=60)]], Field(max_length=20)] = []
+
+    @model_validator(mode="after")
+    def _formula(self):
+        if self.type == "formula" and not self.formula:
+            raise ValueError("a formula column needs a formula, e.g. \"={End}-{Start}\"")
+        if self.formula:
+            if not self.formula.startswith("="):
+                raise ValueError("formula must start with '='")
+            if any(token in self.formula for token in ("[", "|", "!")):
+                raise ValueError("formula may only reference columns of the same sheet ({Column Name})")
+            for function in _FUNCTION.findall(self.formula):
+                if function.upper() not in ALLOWED_FUNCTIONS:
+                    raise ValueError(f"function {function.upper()} is not allowed in formulas")
+        return self
+
+
+class ConditionalFormat(Strict):
+    column: Annotated[str, Field(min_length=1, max_length=60)]
+    operator: Literal["equal", "not_equal", "greater_than", "less_than", "greater_or_equal", "less_or_equal", "contains"]
+    value: str | float
+    style: Literal["good", "warning", "bad", "highlight"] = "highlight"
+
+
+class Totals(Strict):
+    column: Annotated[str, Field(min_length=1, max_length=60)]
+    function: Literal["sum", "average", "count", "min", "max"] = "sum"
+
+
+class Summary(Strict):
+    group_by: Annotated[str, Field(min_length=1, max_length=60)]
+    function: Literal["count", "sum"] = "count"
+    value_column: Annotated[str, Field(max_length=60)] | None = None
+
+
+class ExcelChart(Strict):
+    type: Literal["bar", "column", "line", "pie"]
+    title: Annotated[str, Field(max_length=80)] | None = None
+    source: Literal["data", "summary"] = "data"
+    category_column: Annotated[str, Field(max_length=60)] | None = None
+    value_columns: Annotated[list[Annotated[str, Field(max_length=60)]], Field(max_length=4)] = []
+
+
+SheetCell = str | float | int | bool | None
+
+
+class SheetSpec(Strict):
+    name: Annotated[str, Field(min_length=1, max_length=31)]
+    columns: Annotated[list[ExcelColumn], Field(min_length=1, max_length=30)]
+    rows: Annotated[list[list[SheetCell]], Field(max_length=2000)] = []
+    totals: Annotated[list[Totals], Field(max_length=30)] = []
+    conditional_formats: Annotated[list[ConditionalFormat], Field(max_length=20)] = []
+    summary: Summary | None = None
+    chart: ExcelChart | None = None
+    freeze_header: bool = True
+
+    @model_validator(mode="after")
+    def _consistent(self):
+        if _SHEET_NAME_BAD.search(self.name):
+            raise ValueError("sheet name may not contain [ ] : * ? / \\")
+        names = [c.name for c in self.columns]
+        if len(set(n.lower() for n in names)) != len(names):
+            raise ValueError("column names must be unique")
+        known = set(names)
+        width = len(self.columns)
+        for index, row in enumerate(self.rows):
+            if len(row) != width:
+                raise ValueError(
+                    f"rows[{index}] has {len(row)} cells but there are {width} columns; give one cell per "
+                    "column (use null for formula columns)"
+                )
+        for column in self.columns:
+            for ref in _PLACEHOLDER.findall(column.formula or ""):
+                if ref != "row" and ref not in known:
+                    raise ValueError(f"column '{column.name}': formula refers to unknown column '{{{ref}}}'")
+        for item in [*self.totals, *self.conditional_formats]:
+            if item.column not in known:
+                raise ValueError(f"unknown column '{item.column}'")
+        if self.summary:
+            if self.summary.group_by not in known:
+                raise ValueError(f"summary.group_by: unknown column '{self.summary.group_by}'")
+            if self.summary.function == "sum" and self.summary.value_column not in known:
+                raise ValueError("summary.value_column must name a numeric column when function is sum")
+        if self.chart:
+            if self.chart.source == "summary" and not self.summary:
+                raise ValueError("chart.source 'summary' needs a summary block")
+            if self.chart.source == "data":
+                if self.chart.category_column not in known:
+                    raise ValueError("chart.category_column must name a column")
+                if not self.chart.value_columns or any(v not in known for v in self.chart.value_columns):
+                    raise ValueError("chart.value_columns must name 1-4 numeric columns")
+        return self
+
+
+class WorkbookSpec(Strict):
+    template: Literal["action_tracker", "project_plan"]
+    title: Annotated[str, Field(min_length=1, max_length=100)]
+    sheets: Annotated[list[SheetSpec], Field(min_length=1, max_length=6)]
+    filename: Annotated[str, Field(max_length=80)] | None = None
+
+    @model_validator(mode="after")
+    def _unique_sheets(self):
+        names = [s.name.lower() for s in self.sheets]
+        if len(set(names)) != len(names):
+            raise ValueError("sheet names must be unique")
+        return self
+
+
+EXCEL_INPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "template": {**_STR, "description": "action_tracker or project_plan."},
+        "title": {**_STR, "description": "Workbook title, shown at the top of each sheet."},
+        "sheets": {
+            "type": "array",
+            "description": "Up to 6 sheets.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {**_STR, "description": "Sheet name, up to 31 characters, no [ ] : * ? / \\."},
+                    "columns": {
+                        "type": "array",
+                        "description": "Columns in order (up to 30).",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": _STR,
+                                "type": {
+                                    **_STR,
+                                    "description": "text (default), number, integer, currency, percent "
+                                    "(0.25 or \"25%\"), date (YYYY-MM-DD) or formula.",
+                                },
+                                "formula": {
+                                    **_STR,
+                                    "description": "For formula columns: refer to other columns in the same "
+                                    "row by name in braces, e.g. \"={End}-{Start}\" or "
+                                    "\"=IF({Due date}<TODAY(),\\\"Overdue\\\",\\\"\\\")\". Common functions only.",
+                                },
+                                "allowed_values": {**_STR_LIST, "description": "Dropdown choices for the column."},
+                            },
+                            "required": ["name"],
+                        },
+                    },
+                    "rows": {
+                        "type": "array",
+                        "description": "Data rows; one cell per column, null for formula columns.",
+                        "items": {"type": "array", "items": {}},
+                    },
+                    "totals": {
+                        "type": "array",
+                        "description": "Total row entries: {column, function: sum|average|count|min|max}.",
+                        "items": {"type": "object", "properties": {"column": _STR, "function": _STR}, "required": ["column"]},
+                    },
+                    "conditional_formats": {
+                        "type": "array",
+                        "description": "Highlight rules: {column, operator: equal|not_equal|greater_than|"
+                        "less_than|greater_or_equal|less_or_equal|contains, value, style: good|warning|bad|highlight}.",
+                        "items": {
+                            "type": "object",
+                            "properties": {"column": _STR, "operator": _STR, "value": {}, "style": _STR},
+                            "required": ["column", "operator", "value"],
+                        },
+                    },
+                    "summary": {
+                        "type": "object",
+                        "description": "Optional formula-driven summary beside the table, e.g. count of "
+                        "actions per Status: {group_by, function: count|sum, value_column}.",
+                        "properties": {"group_by": _STR, "function": _STR, "value_column": _STR},
+                        "required": ["group_by"],
+                    },
+                    "chart": {
+                        "type": "object",
+                        "description": "Optional native chart: {type: bar|column|line|pie, title, source: "
+                        "data|summary, category_column, value_columns}. source summary charts the summary.",
+                        "properties": {
+                            "type": _STR,
+                            "title": _STR,
+                            "source": _STR,
+                            "category_column": _STR,
+                            "value_columns": _STR_LIST,
+                        },
+                        "required": ["type"],
+                    },
+                    "freeze_header": {"type": "boolean"},
+                },
+                "required": ["name", "columns"],
+            },
+        },
+        "filename": {**_STR, "description": "Optional file name without extension."},
+    },
+    "required": ["template", "title", "sheets"],
 }

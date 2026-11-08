@@ -143,7 +143,7 @@ async def run(ctx: ToolContext, job: Job) -> list:
 
 def _deliver(ctx, job: Job, document_id, version, target: Path, mime, stats, checks) -> list:
     pages = checks.get("pages")
-    unit = "slide" if job.kind == "powerpoint" else "page"
+    unit = {"powerpoint": "slide", "excel": "printed page"}.get(job.kind, "page")
     detail = job.summary(stats) if job.summary else ""
     text = (
         f'Created the {KIND_LABEL[job.kind]} "{getattr(job.spec, "title", target.stem)}" as {target.name} '

@@ -108,3 +108,78 @@ def deck_spec(**overrides):
     }
     spec.update(overrides)
     return spec
+
+
+STATUSES = ["Not started", "In progress", "Blocked", "Done"]
+
+
+def tracker_spec(**overrides):
+    owners = ["Service Desk", "Network Ops", "Security", "IT Apps"]
+    rows = []
+    for i in range(12):
+        rows.append([
+            f"A-{i + 1:03d}",
+            f"Synthetic action item number {i + 1}",
+            owners[i % 4],
+            f"2026-12-{(i % 27) + 1:02d}",
+            STATUSES[i % 4],
+            ["High", "Medium", "Low"][i % 3],
+            None,
+        ])
+    spec = {
+        "template": "action_tracker",
+        "title": "IT Service Improvement Actions (synthetic)",
+        "sheets": [{
+            "name": "Actions",
+            "columns": [
+                {"name": "ID"},
+                {"name": "Action"},
+                {"name": "Owner"},
+                {"name": "Due date", "type": "date"},
+                {"name": "Status", "allowed_values": STATUSES},
+                {"name": "Priority", "allowed_values": ["High", "Medium", "Low"]},
+                {"name": "Days left", "type": "formula",
+                 "formula": "=IF({Status}=\"Done\",\"\",{Due date}-DATE(2026,11,8))"},
+            ],
+            "rows": rows,
+            "conditional_formats": [
+                {"column": "Status", "operator": "equal", "value": "Done", "style": "good"},
+                {"column": "Status", "operator": "equal", "value": "Blocked", "style": "bad"},
+                {"column": "Priority", "operator": "equal", "value": "High", "style": "warning"},
+            ],
+            "summary": {"group_by": "Status", "function": "count"},
+            "chart": {"type": "pie", "title": "Actions by status", "source": "summary"},
+        }],
+    }
+    spec.update(overrides)
+    return spec
+
+
+def plan_spec(**overrides):
+    spec = {
+        "template": "project_plan",
+        "title": "Portal Rollout Plan (synthetic)",
+        "sheets": [{
+            "name": "Plan",
+            "columns": [
+                {"name": "Task"},
+                {"name": "Owner"},
+                {"name": "Start", "type": "date"},
+                {"name": "End", "type": "date"},
+                {"name": "Duration (days)", "type": "formula", "formula": "={End}-{Start}"},
+                {"name": "% complete", "type": "percent"},
+                {"name": "Budget", "type": "currency"},
+            ],
+            "rows": [
+                ["Usability fixes", "Digital", "2026-11-09", "2026-12-04", None, "40%", 45000],
+                ["Wave 1 rollout", "Digital", "2026-12-07", "2027-01-29", None, 0.1, 380000],
+                ["Identity checks", "Security", "2026-12-01", "2027-02-12", None, 0, 210000],
+                ["Wave 2 rollout", "Digital", "2027-02-15", "2027-04-09", None, 0, 520000],
+            ],
+            "totals": [{"column": "Budget", "function": "sum"}, {"column": "% complete", "function": "average"}],
+            "chart": {"type": "bar", "title": "Duration by task", "source": "data",
+                      "category_column": "Task", "value_columns": ["Duration (days)"]},
+        }],
+    }
+    spec.update(overrides)
+    return spec

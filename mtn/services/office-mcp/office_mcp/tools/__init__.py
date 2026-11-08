@@ -10,11 +10,12 @@ from mcp import types
 
 from ..auth import Identity
 from ..config import Settings
+from ..errors import ToolError
 from ..store import Store
 
+__all__ = ["Tool", "ToolContext", "ToolError", "register", "registry"]
 
-class ToolError(Exception):
-    """A failure the model can act on; its message is returned verbatim as the tool error."""
+
 
 
 @dataclass
@@ -39,4 +40,4 @@ def register(tool: Tool) -> Tool:
 
 
 # Tool modules register themselves on import.
-from . import powerpoint_tool, word_tool  # noqa: E402,F401
+from . import excel_tool, powerpoint_tool, word_tool  # noqa: E402,F401
