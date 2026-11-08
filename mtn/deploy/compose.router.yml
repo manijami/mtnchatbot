@@ -1,0 +1,83 @@
+# MTN model router demo — NVIDIA NeMo Switchyard + router-lens + Prometheus. DEV/DEMO ONLY.
+# Enabled via COMPOSE_FILE in .env. Remove this file from COMPOSE_FILE to turn the demo off.
+# Published ports are bound to 127.0.0.1 only: the live feed (8090) and Prometheus (9091).
+# Switchyard itself publishes nothing; provider keys reach it only as environment variables.
+services:
+  api:
+    networks:
+      - router
+
+  switchyard:
+    image: mtn-switchyard:0.3.0-mtn1
+    build:
+      context: ./mtn/router/switchyard
+      target: runtime
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      GROQ_API_KEY: ${GROQ_API_KEY:?set GROQ_API_KEY in .env}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:?set NVIDIA_API_KEY in .env}
+      RUST_LOG: switchyard_server=info,libsy=info
+    volumes:
+      - switchyard-logs:/var/log/switchyard
+    networks:
+      - router
+      - router-egress
+    mem_limit: 256m
+    cpus: 1.0
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+
+  router-lens:
+    image: mtn-router-lens:0.1.0
+    build:
+      context: ./mtn/router/lens
+      target: runtime
+    pull_policy: never
+    restart: unless-stopped
+    depends_on: [switchyard]
+    environment:
+      SWITCHYARD_URL: http://switchyard:4000
+      SHOW_ROUTING_FOOTER: ${SHOW_ROUTING_FOOTER:-false}
+      REDACT_PROMPTS: ${REDACT_PROMPTS:-true}
+    ports:
+      - "127.0.0.1:8090:8090"   # live routing feed only; the API port 8080 stays internal
+    networks:
+      - router
+      - default
+    mem_limit: 128m
+    cpus: 0.5
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+
+  prometheus:
+    image: prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./mtn/router/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9091:9090"   # for the local Grafana on :3000
+    networks:
+      - router
+      - default
+    mem_limit: 256m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+
+networks:
+  router:
+    internal: true
+  router-egress: {}
+
+volumes:
+  switchyard-logs:
+  prometheus-data:

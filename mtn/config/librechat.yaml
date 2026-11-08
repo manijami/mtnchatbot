@@ -129,6 +129,21 @@ endpoints:
       titleEndpoint: 'groq'
       titleModel: 'openai/gpt-oss-20b'
       modelDisplayLabel: 'NVIDIA'
+    # DEV/DEMO ONLY — MTN model router demo (mtn/deploy/compose.router.yml). Each turn is routed by
+    # NVIDIA NeMo Switchyard across Groq gpt-oss-20b / gpt-oss-120b and NVIDIA Nemotron 3 Ultra via
+    # router-lens (which adds the optional routing footer and the live feed). router-lens holds no
+    # key; the value below only satisfies LibreChat's required field.
+    - name: 'MTN Smart Router'
+      apiKey: 'not-used-router-lens-holds-no-key'
+      baseURL: 'http://router-lens:8080/v1'
+      models:
+        default:
+          - 'mtn-smart'
+        fetch: false
+      titleConvo: true
+      titleEndpoint: 'groq'
+      titleModel: 'openai/gpt-oss-20b'
+      modelDisplayLabel: 'MTN Smart Router'
 
 # Groq's and NVIDIA's chat APIs reject native PDF parts (400), so deliver PDFs as extracted text.
 fileConfig:
@@ -139,6 +154,11 @@ fileConfig:
           'application/pdf': 'text'
     # NVIDIA's chat API also rejects native PDF parts (400 "did not match any variant").
     nvidia:
+      defaultLLMDeliveryPath:
+        overrides:
+          'application/pdf': 'text'
+    # Every model behind the router is one of the above.
+    'MTN Smart Router':
       defaultLLMDeliveryPath:
         overrides:
           'application/pdf': 'text'
@@ -239,6 +259,25 @@ modelSpecs:
             slide count the tool reported, plus any assumption. Do not list the file's contents.
           - Do not use tools for questions that do not ask for a file.
           - Use synthetic or public information only in this development environment.
+
+    - name: 'mtn-smart-chat'
+      label: 'MTN Smart Chat'
+      description: 'General chat. Each message goes to the fastest model that can answer it well (demo, synthetic data only).'
+      group: 'MTN'
+      order: 3
+      conversation_starters:
+        - 'Hi there! Good morning.'
+        - 'How should an employee report a lost company laptop, step by step?'
+        - 'Compare three options for migrating 400 servers to the cloud over 18 months, with a decision matrix and a recommendation.'
+      preset:
+        endpoint: 'MTN Smart Router'
+        model: 'mtn-smart'
+        modelLabel: 'MTN Smart Chat'
+        promptPrefix: |
+          You are MTN Smart Chat, a helpful assistant for MTN employees. Today's date is
+          {{current_date}}. Answer clearly and concisely; use short headings or lists only when
+          they help. Do not invent contact details, prices or currencies that the user did not give.
+          Use synthetic or public information only in this development environment.
 
 # Phase 4 — Office document generation (mtn/services/office-mcp, mtn/deploy/compose.office.yml).
 # Reachable only on the internal `office` Docker network. `X-MTN-User-Id` makes the connection
