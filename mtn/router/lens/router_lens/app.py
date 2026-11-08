@@ -20,6 +20,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse, Response, StreamingResponse
 from starlette.routing import Route
 
+from . import guards
 from .config import TIER_RULES, Settings
 from .ledger import Decision, Ledger
 
@@ -116,21 +117,43 @@ def build_app(settings: Settings, ledger: Ledger, client: httpx.AsyncClient | No
         strip_footers(body.get("messages"))
         if body.get("stream"):
             body["stream_options"] = {**(body.get("stream_options") or {}), "include_usage": True}
-        state = TurnState(time.monotonic(), snippet(last_user_text(body.get("messages")), settings.redact_prompts))
+        messages = body.get("messages") or []
+        state = TurnState(time.monotonic(), snippet(last_user_text(messages), settings.redact_prompts))
+
+        def handled(text: str, reason: str, status: str = "handled") -> Response:
+            ledger.record(Decision(time.time(), state.prompt, "router-lens", None, "router-lens", reason,
+                                   "guard", "none", state.elapsed_ms(), 0, 0, status=status))
+            if body.get("stream"):
+                return Response(guards.reply_stream(text), media_type="text/event-stream",
+                                headers={"x-router-lens-handled": reason})
+            return JSONResponse(guards.reply_json(text), headers={"x-router-lens-handled": reason})
+
+        guards.strip_history_images(messages)
+        latest = guards.latest_user(messages)
+        if latest and guards.has_image(latest):
+            return handled(guards.IMAGE_REPLY, "image attached")
+        office_kind = guards.office_request(last_user_text(messages))
+        if office_kind:
+            return handled(guards.OFFICE_REPLY.format(kind=office_kind), f"{office_kind} request")
 
         judge_route = "primary"
         try:
-            upstream = await open_upstream(body, settings.primary_route)
+            upstream = await asyncio.wait_for(open_upstream(body, settings.primary_route), settings.first_byte_timeout)
             retry = upstream.status_code in RETRYABLE
             if retry:
                 await upstream.aread()
                 await upstream.aclose()
+        except asyncio.TimeoutError:
+            # The answer has not started within the deadline: answer clearly instead of spinning.
+            return handled(guards.TIMEOUT_REPLY, f"no answer within {int(settings.first_byte_timeout)} s", "timeout")
         except httpx.HTTPError:
             retry = True
         if retry:
             judge_route = "backup"
             try:
-                upstream = await open_upstream(body, settings.backup_route)
+                upstream = await asyncio.wait_for(open_upstream(body, settings.backup_route), settings.first_byte_timeout)
+            except asyncio.TimeoutError:
+                return handled(guards.TIMEOUT_REPLY, f"no answer within {int(settings.first_byte_timeout)} s", "timeout")
             except httpx.HTTPError:
                 ledger.record(Decision(time.time(), state.prompt, "error", None, "-", "router unreachable",
                                        "error", judge_route, state.elapsed_ms(), 0, 0, status="error"))
@@ -171,8 +194,18 @@ def build_app(settings: Settings, ledger: Ledger, client: httpx.AsyncClient | No
             buffer = b""
             footer_sent = not settings.show_footer
             status = "ok"
+            chunks = upstream.aiter_bytes().__aiter__()
             try:
-                async for chunk in upstream.aiter_bytes():
+                while True:
+                    try:
+                        chunk = await asyncio.wait_for(chunks.__anext__(), settings.idle_timeout)
+                    except StopAsyncIteration:
+                        break
+                    except asyncio.TimeoutError:
+                        # The model went silent mid-answer: close the answer cleanly.
+                        status = "stalled"
+                        yield guards.stalled_event()
+                        return
                     buffer += chunk
                     while b"\n\n" in buffer:
                         event, buffer = buffer.split(b"\n\n", 1)

@@ -230,3 +230,143 @@ def test_footer_comes_after_text_carried_by_the_finishing_chunk(fake):
     assert pieces[2][0].startswith("\n\n*Routed to")
     assert pieces[3] == (None, "stop")
     assert "".join(p[0] or "" for p in pieces).endswith("s*")
+
+
+# -- guards: images, Office requests, deadlines ------------------------------------------------
+
+import asyncio  # noqa: E402
+
+from router_lens import guards  # noqa: E402
+
+IMAGE_PART = {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}}
+
+
+def _content(response):
+    text = ""
+    for line in response.text.split("\n\n"):
+        if line.startswith("data: {"):
+            for choice in json.loads(line[6:]).get("choices", []):
+                text += (choice.get("delta") or {}).get("content") or ""
+    return text
+
+
+def test_image_on_the_latest_turn_gets_a_friendly_reply_without_calling_the_router(fake):
+    client, ledger = make(fake)
+    r = client.post("/v1/chat/completions", json={"model": "mtn-smart", "stream": True, "messages": [
+        {"role": "user", "content": [{"type": "text", "text": "What colour is this?"}, IMAGE_PART]}]})
+    assert r.status_code == 200
+    assert "can't read images" in _content(r)
+    assert r.text.rstrip().endswith("data: [DONE]")
+    assert fake.requests == []
+    assert ledger.recent[0].status == "handled" and ledger.summary()["handled"] == 1
+    assert ledger.summary()["errors"] == 0
+
+
+def test_images_in_earlier_turns_become_a_text_note(fake):
+    fake.set("mtn-smart", headers={"x-model-router-selected-model": "openai/gpt-oss-20b",
+                                   "x-switchyard-route-evidence": FAST_EVIDENCE},
+             body=sse(chunk("Sure."), chunk(finish="stop")))
+    client, _ = make(fake)
+    history = [{"role": "user", "content": [{"type": "text", "text": "Look"}, IMAGE_PART]},
+               {"role": "assistant", "content": "I can't read images."}]
+    r = ask(client, "OK, tell me a joke", history=history)
+    assert r.status_code == 200
+    sent = fake.requests[0]["messages"][0]["content"]
+    assert isinstance(sent, str) and guards.IMAGE_NOTE in sent and "Look" in sent
+
+
+@pytest.mark.parametrize("text,kind", [
+    ("Can u make a powerpoint on saturn?", "PowerPoint presentation"),
+    ("Please create a Word document about our leave policy", "Word document"),
+    ("build me an excel spreadsheet of Q3 sales", "Excel workbook"),
+    ("Generate a 5-slide deck on onboarding", "PowerPoint presentation"),
+])
+def test_office_requests_are_detected(text, kind):
+    assert guards.office_request(text) == kind
+
+
+@pytest.mark.parametrize("text", [
+    "What is an Excel pivot table?",
+    "How do I add slide numbers in PowerPoint?",
+    "Summarise this paragraph for me",
+])
+def test_questions_about_office_products_are_not_office_requests(text):
+    assert guards.office_request(text) is None
+
+
+def test_office_request_points_to_the_document_assistant(fake):
+    client, ledger = make(fake)
+    r = ask(client, "Can u make a powerpoint on saturn?")
+    assert "MTN Document Assistant" in _content(r)
+    assert fake.requests == []
+    assert ledger.recent[0].reason == "PowerPoint presentation request"
+
+
+def test_office_reply_non_streaming(fake):
+    client, _ = make(fake)
+    r = ask(client, "create an excel workbook of team birthdays", stream=False)
+    assert "Document Assistant" in r.json()["choices"][0]["message"]["content"]
+
+
+class SlowSwitchyard(FakeSwitchyard):
+    """Delays the response headers (first_delay) or the body after the first chunk (stall)."""
+
+    def __init__(self, first_delay=0.0, stall=0.0):
+        super().__init__()
+        self.first_delay, self.stall = first_delay, stall
+
+    def app(self):
+        outer = self
+
+        async def chat(request: Request):
+            await request.json()
+            await asyncio.sleep(outer.first_delay)
+
+            async def body():
+                yield f"data: {json.dumps(chunk('Partial answer'))}\n\n".encode()
+                await asyncio.sleep(outer.stall)
+                yield f"data: {json.dumps(chunk(finish='stop'))}\n\ndata: [DONE]\n\n".encode()
+
+            from starlette.responses import StreamingResponse
+            return StreamingResponse(body(), media_type="text/event-stream",
+                                     headers={"x-model-router-selected-model": "openai/gpt-oss-20b",
+                                              "x-switchyard-route-evidence": FAST_EVIDENCE})
+
+        return Starlette(routes=[Route("/v1/chat/completions", chat, methods=["POST"])])
+
+
+def test_slow_first_response_returns_a_clear_message(fake):
+    client, ledger = make(SlowSwitchyard(first_delay=1.0), first_byte_timeout=0.2)
+    r = ask(client, "Tell me about Saturn")
+    assert r.status_code == 200
+    assert "taking much longer than usual" in _content(r)
+    assert ledger.recent[0].status == "timeout" and ledger.summary()["timeouts"] == 1
+
+
+class StallingTransport(httpx.AsyncBaseTransport):
+    """Streams one chunk, then goes silent (httpx's ASGI transport buffers, so it cannot stall)."""
+
+    async def handle_async_request(self, request):
+        class Body(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                yield f"data: {json.dumps(chunk('Partial answer'))}\n\n".encode()
+                await asyncio.sleep(5)
+                yield b"data: [DONE]\n\n"
+
+        return httpx.Response(200, headers={"content-type": "text/event-stream",
+                                            "x-model-router-selected-model": "openai/gpt-oss-20b",
+                                            "x-switchyard-route-evidence": FAST_EVIDENCE}, stream=Body())
+
+
+def test_stalled_stream_is_closed_with_a_note():
+    settings = replace(Settings(prices=PRICES, model_tiers=TIERS, stats_poll_seconds=3600),
+                       idle_timeout=0.2, show_footer=False)
+    ledger = Ledger(PRICES, TIERS)
+    http = httpx.AsyncClient(transport=StallingTransport(), base_url="http://switchyard:4000")
+    client = TestClient(build_app(settings, ledger, http))
+    r = ask(client, "Tell me about Saturn")
+    text = _content(r)
+    assert text.startswith("Partial answer") and "cut short" in text
+    assert r.text.rstrip().endswith("data: [DONE]")
+    assert ledger.recent[0].status == "stalled"
+    assert ledger.summary()["turns"]["fast"] == 1

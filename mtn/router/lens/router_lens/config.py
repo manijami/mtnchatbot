@@ -31,6 +31,8 @@ class Settings:
     api_port: int = 8080
     feed_port: int = 8090
     stats_poll_seconds: float = 10.0
+    first_byte_timeout: float = 45.0  # seconds until the routed model must start answering
+    idle_timeout: float = 45.0  # longest silence allowed once an answer is streaming
     prices: dict = field(default_factory=dict)
     model_tiers: dict = field(default_factory=dict)
 
@@ -54,6 +56,8 @@ def load_settings() -> Settings:
         api_port=int(os.environ.get("ROUTER_LENS_API_PORT", "8080")),
         feed_port=int(os.environ.get("ROUTER_LENS_FEED_PORT", "8090")),
         stats_poll_seconds=float(os.environ.get("ROUTER_LENS_STATS_POLL_SECONDS", "10")),
+        first_byte_timeout=float(os.environ.get("ROUTER_LENS_FIRST_BYTE_TIMEOUT", "45")),
+        idle_timeout=float(os.environ.get("ROUTER_LENS_IDLE_TIMEOUT", "45")),
         prices=prices,
         model_tiers=tiers,
     )

@@ -28,7 +28,7 @@ class Decision:
     latency_ms: int
     prompt_tokens: int
     completion_tokens: int
-    status: str = "ok"
+    status: str = "ok"  # ok | handled (answered by router-lens) | timeout | stalled | error
 
 
 class Ledger:
@@ -39,6 +39,8 @@ class Ledger:
         self.recent: deque[Decision] = deque(maxlen=capacity)
         self.turns = {tier: 0 for tier in TIERS}
         self.errors = 0
+        self.handled = 0
+        self.timeouts = 0
         self.backup_judge_turns = 0
         self.tokens: dict[tuple[str, str], int] = {}  # (model, kind) -> tokens
         self.latency_buckets = {tier: [0] * (len(LATENCY_BUCKETS) + 1) for tier in TIERS}
@@ -66,9 +68,13 @@ class Ledger:
 
     def record(self, decision: Decision) -> None:
         self.recent.appendleft(decision)
-        if decision.status != "ok":
+        if decision.status == "handled":
+            self.handled += 1
+        elif decision.status in ("timeout", "stalled"):
+            self.timeouts += 1
+        elif decision.status != "ok":
             self.errors += 1
-        else:
+        if decision.status in ("ok", "stalled"):
             tier = decision.tier if decision.tier in TIERS else "balanced"
             self.turns[tier] += 1
             if decision.judge_route == "backup":
@@ -120,6 +126,8 @@ class Ledger:
             "cost_index": self.cost_index(),
             "backup_judge_turns": self.backup_judge_turns,
             "errors": self.errors,
+            "handled": self.handled,
+            "timeouts": self.timeouts,
         }
 
     def subscribe(self) -> asyncio.Queue:
@@ -140,6 +148,12 @@ class Ledger:
             "# HELP mtn_router_errors_total Turns that returned an error to LibreChat.",
             "# TYPE mtn_router_errors_total counter",
             f"mtn_router_errors_total {self.errors}",
+            "# HELP mtn_router_handled_turns_total Turns answered by router-lens itself (image, Office request).",
+            "# TYPE mtn_router_handled_turns_total counter",
+            f"mtn_router_handled_turns_total {self.handled}",
+            "# HELP mtn_router_timeouts_total Turns stopped by the first-response or idle deadline.",
+            "# TYPE mtn_router_timeouts_total counter",
+            f"mtn_router_timeouts_total {self.timeouts}",
             "# HELP mtn_router_backup_judge_turns_total Turns served via the backup-judge route.",
             "# TYPE mtn_router_backup_judge_turns_total counter",
             f"mtn_router_backup_judge_turns_total {self.backup_judge_turns}",
