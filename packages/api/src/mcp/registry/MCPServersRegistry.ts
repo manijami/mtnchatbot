@@ -437,6 +437,16 @@ export class MCPServersRegistry {
   }
 
   /**
+   * The librechat.yaml server entry for a name, as this process was configured at startup.
+   * It never reflects Config-tier overrides or user DB entries, so callers can read operator-only
+   * policy (such as `fileOutputs`) from it. Agent Plugins entries merged into the startup map
+   * still carry `source: 'plugin'` and must be excluded by the caller.
+   */
+  public getYamlServerOptions(serverName: string): t.MCPOptions | undefined {
+    return this.yamlServerOptions.get(serverName);
+  }
+
+  /**
    * librechat.yaml servers a resolved `mcpConfig` hides: hideable servers the merge removed
    * (a `mcpServers.<name>` tombstone). Plugin, user-tier and process-backed servers are never
    * hidden, and a missing `mcpConfig` hides every hideable server. A config that fell back to

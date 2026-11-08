@@ -157,6 +157,11 @@ export type Artifacts =
         fileCitations?: boolean;
       };
       [Tools.web_search]?: SearchResultData;
+      /** Files from an MCP server with `fileOutputs` enabled (see `mcp/fileOutputs.ts`). */
+      mcp_file_outputs?: {
+        serverName: string;
+        files: Array<{ filename: string; mimeType: string; bytes: number; data: string }>;
+      };
       files?: Array<{ id: string; name: string }>;
       session_id?: string;
       file_ids?: string[];

@@ -40,11 +40,13 @@ const {
   createToolTimingAdapter,
   stampCommandExecutor,
   writeGuarded,
+  takeMCPFileOutputs,
+  persistMCPFileOutput,
 } = require('@librechat/api');
 const { processFileCitations } = require('~/server/services/Files/Citations');
 const { processCodeOutput, runPreviewFinalize } = require('~/server/services/Files/Code/process');
 const { preflightCodeOutputBatch } = require('~/server/services/Files/Code/preflight');
-const { saveBase64Image } = require('~/server/services/Files/process');
+const { saveBase64Image, getMCPFileOutputDeps } = require('~/server/services/Files/process');
 
 function isHostFileAuthoringArtifact(artifact) {
   return artifact?.[HOST_FILE_AUTHORING_ARTIFACT_KEY] === true;
@@ -928,6 +930,31 @@ function createToolEndCallback({ req, res, artifactPromises, streamId = null, jo
       return;
     }
 
+    for (const file of takeMCPFileOutputs(output.name, output.artifact)) {
+      artifactPromises.push(
+        persistMCPFileOutput({ req, file }, getMCPFileOutputDeps())
+          .then((saved) => {
+            if (!saved) {
+              return null;
+            }
+            const fileMetadata = Object.assign(saved, {
+              messageId: metadata.run_id,
+              toolCallId: output.tool_call_id,
+              conversationId: metadata.thread_id,
+            });
+            if (!streamId && !res.headersSent) {
+              return fileMetadata;
+            }
+            writeAttachment(res, streamId, fileMetadata, jobCreatedAt);
+            return fileMetadata;
+          })
+          .catch((error) => {
+            logger.error('[MCP file outputs] Error saving file output:', error);
+            return null;
+          }),
+      );
+    }
+
     if (output.artifact[Tools.file_search]) {
       artifactPromises.push(
         (async () => {
@@ -1299,6 +1326,37 @@ function createResponsesToolEndCallback({ req, res, tracker, artifactPromises })
 
     if (!output.artifact) {
       return;
+    }
+
+    for (const file of takeMCPFileOutputs(output.name, output.artifact)) {
+      artifactPromises.push(
+        persistMCPFileOutput({ req, file }, getMCPFileOutputDeps())
+          .then((saved) => {
+            if (!saved) {
+              return null;
+            }
+            const fileMetadata = Object.assign(saved, { toolCallId: output.tool_call_id });
+            if (res.headersSent && !res.writableEnded) {
+              writeResponsesAttachment(
+                res,
+                tracker,
+                {
+                  file_id: fileMetadata.file_id,
+                  filename: fileMetadata.filename,
+                  type: fileMetadata.type,
+                  url: fileMetadata.filepath,
+                  tool_call_id: output.tool_call_id,
+                },
+                metadata,
+              );
+            }
+            return fileMetadata;
+          })
+          .catch((error) => {
+            logger.error('[MCP file outputs] Error saving file output:', error);
+            return null;
+          }),
+      );
     }
 
     if (output.artifact[Tools.file_search]) {

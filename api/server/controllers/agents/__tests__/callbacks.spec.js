@@ -38,6 +38,8 @@ jest.mock('@librechat/api', () => ({
       : null,
   ),
   isCodeArtifactToolOutput: jest.requireActual('@librechat/api').isCodeArtifactToolOutput,
+  takeMCPFileOutputs: jest.requireActual('@librechat/api').takeMCPFileOutputs,
+  persistMCPFileOutput: jest.requireActual('@librechat/api').persistMCPFileOutput,
   isCodeSessionToolName: jest.requireActual('@librechat/api').isCodeSessionToolName,
   collectToolCallIds: jest.requireActual('@librechat/api').collectToolCallIds,
   captureSubagentIdentity: jest.requireActual('@librechat/api').captureSubagentIdentity,
@@ -109,6 +111,7 @@ jest.mock('~/server/services/Tools/credentials', () => ({
 
 jest.mock('~/server/services/Files/process', () => ({
   saveBase64Image: jest.fn(),
+  getMCPFileOutputDeps: jest.fn(),
 }));
 
 describe('resumable event generation fencing', () => {
@@ -859,6 +862,76 @@ describe('createToolEndCallback', () => {
       }
     },
   );
+
+  describe('MCP file outputs', () => {
+    const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    const docx = Buffer.concat([
+      Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+      Buffer.alloc(26),
+      Buffer.from('[Content_Types].xml', 'latin1'),
+    ]).toString('base64');
+    const mcpOutput = (name) => ({
+      name,
+      tool_call_id: 'call_mcp',
+      artifact: {
+        mcp_file_outputs: {
+          serverName: 'mtn-office',
+          files: [{ filename: 'plan.docx', mimeType: DOCX, bytes: 49, data: docx }],
+        },
+      },
+    });
+    let deps;
+
+    beforeEach(() => {
+      const { getMCPFileOutputDeps } = require('~/server/services/Files/process');
+      deps = {
+        getFileStrategy: () => 'local',
+        getStrategyFunctions: () => ({
+          saveBuffer: jest.fn(async ({ userId, fileName }) => `/uploads/${userId}/${fileName}`),
+          deleteFile: jest.fn(),
+        }),
+        createFile: jest.fn(async (data) => ({ ...data })),
+        findFileById: jest.fn(),
+        getRetentionExpiry: jest.fn(async () => ({})),
+        logger: { error: jest.fn(), warn: jest.fn() },
+      };
+      getMCPFileOutputDeps.mockReturnValue(deps);
+    });
+
+    it('saves MCP file outputs as user-owned attachments and strips the bytes', async () => {
+      res.headersSent = true;
+      const toolEndCallback = createToolEndCallback({ req, res, artifactPromises });
+      const output = mcpOutput('create_word_document_mcp_mtn-office');
+
+      await toolEndCallback({ output }, { run_id: 'run456', thread_id: 'thread789' });
+      const [file] = await Promise.all(artifactPromises);
+
+      expect(file).toEqual(
+        expect.objectContaining({
+          filename: 'plan.docx',
+          type: DOCX,
+          context: 'mcp_output',
+          user: req.user.id,
+          messageId: 'run456',
+          toolCallId: 'call_mcp',
+          conversationId: 'thread789',
+        }),
+      );
+      expect(res.write).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(output.artifact)).not.toContain(docx);
+    });
+
+    it('ignores the payload when the tool is not an MCP tool', async () => {
+      const toolEndCallback = createToolEndCallback({ req, res, artifactPromises });
+      const output = mcpOutput('web_search');
+
+      await toolEndCallback({ output }, { run_id: 'run456', thread_id: 'thread789' });
+
+      expect(artifactPromises).toHaveLength(0);
+      expect(deps.createFile).not.toHaveBeenCalled();
+      expect(JSON.stringify(output.artifact)).not.toContain(docx);
+    });
+  });
 
   describe('ui_resources artifact handling', () => {
     it('should process ui_resources artifact and return attachment when headers not sent', async () => {

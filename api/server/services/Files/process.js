@@ -1753,6 +1753,19 @@ async function saveBase64Image(
 }
 
 /**
+ * Storage and database functions for MCP file outputs (`persistMCPFileOutput` in @librechat/api).
+ * Wiring only: validation, naming and record shape are decided in packages/api.
+ */
+const getMCPFileOutputDeps = () => ({
+  getFileStrategy: (appConfig) => getFileStrategy(appConfig, { context: FileContext.mcp_output }),
+  getStrategyFunctions,
+  createFile: db.createFile,
+  findFileById: db.findFileById,
+  getRetentionExpiry,
+  logger,
+});
+
+/**
  * Filters a file based on its size and the endpoint origin.
  *
  * @param {Object} params - The parameters for the function.
@@ -1858,6 +1871,7 @@ module.exports = {
   filterFile,
   processFileURL,
   saveBase64Image,
+  getMCPFileOutputDeps,
   processImageFile,
   uploadImageBuffer,
   sweepExpiredFiles,

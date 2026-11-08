@@ -29,6 +29,8 @@ export enum FileContext {
   assistants = 'assistants',
   execute_code = 'execute_code',
   image_generation = 'image_generation',
+  /** File returned by an MCP tool through the opt-in `fileOutputs` server setting. */
+  mcp_output = 'mcp_output',
   assistants_output = 'assistants_output',
   message_attachment = 'message_attachment',
   run_artifact = 'run_artifact',

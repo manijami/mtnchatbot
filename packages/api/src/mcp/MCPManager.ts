@@ -60,6 +60,11 @@ import {
   type MCPAppBindingSubject,
   type MCPAppRuntimeTarget,
 } from './apps/binding';
+import {
+  attachMCPFileOutputs,
+  extractMCPFileOutputs,
+  resolveMCPFileOutputPolicy,
+} from './fileOutputs';
 import { getMCPAppToolsPublicationGeneration, getMCPToolsChangedGeneration } from './toolsChanged';
 import { mcpOptionsContainGraphTokenPlaceholder, preProcessGraphTokens } from '~/utils/graph';
 import { resolveDirectOpenIDBearerConfig, usesDirectOpenIDBearerRecovery } from './openid';
@@ -2238,21 +2243,36 @@ Please follow these instructions when using tools from the respective MCP server
           resolvedAppResource = undefined;
         }
 
+        /** Opt-in file outputs: policy comes from the librechat.yaml snapshot only, and the
+         *  resolved server must itself be a librechat.yaml server (see `mcp/fileOutputs.ts`). */
+        const fileOutputPolicy = resolveMCPFileOutputPolicy(
+          declaredConfig,
+          /* No snapshot (e.g. a partial registry stub) means no policy: files stay off. */
+          registry.getYamlServerOptions?.(serverName),
+        );
+        const { result: deliverableResult, files: fileOutputs } = fileOutputPolicy
+          ? extractMCPFileOutputs(toolResult, fileOutputPolicy)
+          : { result: toolResult, files: [] };
+
         return markMCPToolResultError(
-          formatToolContent(
-            toolResult,
-            provider,
-            appCompatible
-              ? {
-                  serverName,
-                  toolName,
-                  resourceUri: resourceMeta?.uri,
-                  resolvedAppResource,
-                  serverBinding,
-                  toolArgs: toolArguments,
-                  mcpApps: admittedMCPApps,
-                }
-              : { mcpApps: admittedMCPApps },
+          attachMCPFileOutputs(
+            formatToolContent(
+              deliverableResult,
+              provider,
+              appCompatible
+                ? {
+                    serverName,
+                    toolName,
+                    resourceUri: resourceMeta?.uri,
+                    resolvedAppResource,
+                    serverBinding,
+                    toolArgs: toolArguments,
+                    mcpApps: admittedMCPApps,
+                  }
+                : { mcpApps: admittedMCPApps },
+            ),
+            serverName,
+            fileOutputs,
           ),
           toolResult?.isError === true,
         );
