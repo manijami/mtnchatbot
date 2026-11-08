@@ -207,8 +207,10 @@ Record every deviation from upstream here with rationale, so future upstream mer
 - _2026-11-08_ — **Phase 1 layout:** MTN config and brand assets live under `mtn/` and reach the
   app through a branding image layered on the upstream image (see below), not by editing
   `client/public/assets/`, so there is no upstream file diff. Inline theme is a **partial** token set (unnamed tokens keep LibreChat's
-  defaults). In dark mode, yellow is not used behind the send button, because that would force a
-  dark `text-on-status` label, which also sits on the red/status fills.
+  defaults). In dark mode, yellow is not used for `surface-submit` (Save/Submit text buttons),
+  because that would force a dark `text-on-status` label, which also sits on the red/status fills.
+  The chat send button uses `surface-inverted`/`text-inverted`. Every theme text/background pair is
+  checked against WCAG AA (report §10); re-run the check after any palette change.
 - _2026-11-08_ — **Brand fonts via a branding image (option 1 of 3, chosen by the user):** there is
   no config lever for extra `@font-face` files, so `mtn/branding/Dockerfile` layers fonts, assets
   and an `index.html` stylesheet link onto the unchanged upstream image. Rejected: a new

@@ -1,9 +1,9 @@
 # MTN Employee AI Assistant — Handover Report
 
-**Last updated:** 2026-11-08 (Phase 0 accepted; Phase 1 in progress, with official logo and font live)
+**Last updated:** 2026-11-08 (Phase 0 accepted; **Phase 1 done**, with MTN copy, URLs and policy text still placeholders. Phase 4 is next)
 **Prepared for:** external reviewer / incoming contributor
-**Scope:** state of this checkout after Phase 0 — an **unchanged** upstream LibreChat running
-locally via Docker, plus the MTN project guide. **No LibreChat source code has been modified.**
+**Scope:** an **unchanged** upstream LibreChat running locally via Docker, with MTN configuration and
+a thin branding image layered on top. **No LibreChat source code has been modified.**
 
 ---
 
@@ -15,8 +15,9 @@ locally via Docker, plus the MTN project guide. **No LibreChat source code has b
 | Upstream base | `f4154b649` — "🦿 chore: Bump Agents SDK to 4.2.1 (#17664)" (2026-10-31) |
 | `package.json` version | `v0.8.9-rc1` (`git describe`: `v0.8.9-rc1-84-gf4154b649`) |
 | Remotes | `origin` → `https://github.com/manijami/mtnchatbot.git`; `upstream` → `https://github.com/LibreChat-AI/LibreChat.git` (no credentials in URLs) |
-| MTN commits | One docs-only commit on top of upstream: `docs(mtn): project guide and Phase 0 baseline` (adds `CLAUDE.md`, `docs/mtn/`). See §8 for hash. **Not pushed.** |
-| Source diff vs upstream | **None** outside `CLAUDE.md` and `docs/mtn/`. |
+| MTN commits | 5 commits on top of upstream (4 docs, 1 Phase 1 branding). Full list in §8. **None pushed.** |
+| Source diff vs upstream | **None** in LibreChat code. MTN files only: `CLAUDE.md`, `docs/mtn/`, `mtn/` (config, branding image, theme check script), plus 3 lines in `.gitignore`. |
+| Licensed assets | MTN Brighter Sans fonts and official logo files are in gitignored `mtn/branding/private/` and were **never committed** (checked before each commit). |
 
 ### Toolchain (this machine) — all match the repo pins
 
@@ -82,7 +83,7 @@ key demo value.
 | Phase | Description | Status |
 |---|---|---|
 | 0 — Baseline & environment | Clean local run, version/commit/remote confirmed | **Done** (this report) |
-| 1 — Configuration & branding | Title, footer, help URL, welcome, privacy/ToS, MTN theme, assets; curate `modelSpecs` later | **In progress**, using placeholders (§9). Next in execution order after this: Phase 4 |
+| 1 — Configuration & branding | Title, footer, help URL, welcome, privacy/ToS, MTN theme, assets; curate `modelSpecs` later | **Done** (§9). Copy, URLs and policy text are still placeholders waiting on MTN. Theme passes WCAG AA (§10) and works at 390px (§10) |
 | 2 — Identity & access | OIDC + SAML as main way in; prod `ALLOW_REGISTRATION=false`; roles, Admin Panel | Not started — waiting on MTN IdP details |
 | 3 — Infrastructure & data | Mongo/Meili/pgvector/RAG/file storage on MTN-managed services | Not started |
 | 4 — Office document generation | Self-hosted Code Interpreter + template-driven Office MCP tools | Not started (new) |
@@ -129,7 +130,7 @@ the **Groq** custom endpoint, model `openai/gpt-oss-120b`, as test user `phase0t
 | Observability (OTel / Langfuse) | v0.8.9-rc1 | `otel/` config | Not configured | Generate a trace | **Not tested**. |
 | S3/CloudFront storage | v0.8.9-rc1 | AWS creds, `fileStrategy` | Not configured (Phase 3) | Upload, serve via CDN | **Not tested**. |
 | Multilingual UI | v0.8.9-rc1 (core) | None | Default-available | Switch language | **Not tested** — out of Phase 0 scope. |
-| Deployment theming | v0.8.9-rc1 | `interface.theme` | Dev: inline **MTN placeholder** theme | Apply inline theme, check light and dark | **Tested OK** (Phase 1): theme accepted by the server validator; light mode showed a black send button, yellow-tint user bubble and selected nav; dark mode showed a yellow focus ring. Brand font **not loaded** (known gap, §9). |
+| Deployment theming | v0.8.9-rc1 | `interface.theme` + branding image | Dev: inline **MTN** theme, official logo, **MTN Brighter Sans** | Apply inline theme, check light and dark, fonts, contrast, mobile | **Tested OK** (Phase 1): theme accepted by the server validator. Light mode: black primary buttons, yellow-tint user bubble and selected nav. Dark mode: yellow focus ring. Brand font **loaded** (computed `"MTN Brighter Sans"`; faces 300/400/500–600 loaded). All 74 theme text/background pairs pass WCAG AA (§10). Login, chat and sidebar checked at 390px in both modes (§10). |
 | Manual context compaction | v0.8.9-rc1 | None | Default-available | Trigger summarize-only turn | **Not tested** — out of Phase 0 scope. |
 
 **Phase 0 acceptance (all passed):** register test user ✅ · send chat message ✅ · streaming ✅ ·
@@ -155,50 +156,22 @@ Created by copying `.env.example` and changing only:
 Everything else is the upstream `.env.example` default (e.g. `PORT=3080`, `SEARCH=false`, provider
 keys `user_provided`).
 
-### `librechat.yaml` at end of Phase 0 — no secrets (superseded by `mtn/config/librechat.yaml`, §9)
+### `librechat.yaml`
 
-```yaml
-version: 1.3.18
-cache: true
-interface:            # upstream default interface settings, no branding
-  fileSearch: true
-  modelSelect: true
-  parameters: true
-  presets: true
-  bookmarks: true
-  multiConvo: true
-  agents: true
-  fileCitations: true
-endpoints:
-  custom:
-    - name: 'groq'
-      apiKey: '${GROQ_API_KEY}'
-      baseURL: 'https://api.groq.com/openai/v1/'
-      models:
-        default: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b']
-        fetch: true
-      titleConvo: true
-      titleModel: 'openai/gpt-oss-20b'
-      modelDisplayLabel: 'Groq'
-# Groq's chat API rejects native PDF parts (400), so deliver PDFs as extracted text.
-fileConfig:
-  endpoints:
-    groq:
-      defaultLLMDeliveryPath:
-        overrides:
-          'application/pdf': 'text'
-```
+The current, tracked config is **`mtn/config/librechat.yaml`** (no secrets; keys are `${ENV}`
+references). The Phase 0 snapshot that used to be here is in git history (`048140573`). It has
+the same Groq endpoint and PDF `fileConfig` override, without the Phase 1 branding.
 
 The Groq models listed in `librechat.example.yaml` (`llama3-*`, `mixtral-*`, `gemma-*`) are retired;
-the defaults above are models the key can actually use (verified via Groq `/models`).
+the defaults in `mtn/config/librechat.yaml` are models the key can actually use (verified via Groq `/models`).
 
 ---
 
-## 6. Running stack (`docker compose ps`)
+## 6. Running stack (`docker ps`, 2026-11-08)
 
 | Container | Image | State | Ports |
 |---|---|---|---|
-| `LibreChat` (api) | `librechat-dev:latest` | Up; `/health` → `OK`, "Server readiness checks passing" | `3080` |
+| `LibreChat` (api) | **`mtn-librechat:local`** (`sha256:83421c0eb74d…`), built by `mtn/branding/Dockerfile` FROM `librechat-dev:latest` | Up; `/health` → `OK`; `[schedules] engine started` | `3080` |
 | `admin-panel` | `librechat-admin-panel:latest` | Up **(healthy)** | `3001→3000` |
 | `chat-mongodb` | `mongo:8.0.20` | Up | internal |
 | `chat-meilisearch` | `getmeili/meilisearch:v1.35.1` | Up | internal |
@@ -207,7 +180,10 @@ the defaults above are models the key can actually use (verified via Groq `/mode
 
 Only `admin-panel` defines a Docker healthcheck; the others were verified by state + logs + HTTP.
 
-Start/stop: `docker compose up -d` / `docker compose down` (data persists in named volumes).
+- Start/stop: `docker compose up -d` / `docker compose down` (data persists in named volumes).
+- After upstream image updates: `docker compose pull && docker compose build api && docker compose up -d`.
+  `pull_policy: never` on `api` stops compose trying to pull the local-only branding image.
+- The branding image contains licensed fonts and the official logo. **Never push it to a public registry.**
 
 ---
 
@@ -226,14 +202,25 @@ Start/stop: `docker compose up -d` / `docker compose down` (data persists in nam
 - **First registered user becomes `ADMIN`** (upstream behavior). In production, create the first
   admin deliberately (`npm run create-user`) before enabling SSO.
 - **Docker Desktop disk** was full (58 GB VM disk) and blocked the image pull; the user removed old
-  images. Currently ~9 GB free in the VM — monitor before adding the Code Interpreter image.
+  images. Now **11.7 GB free** (79% used). Monitor this before adding the Code Interpreter image (Phase 4).
 - **Image tags are `:latest`/`-dev`** (upstream compose default). Pin digests before any shared or
   production environment.
 - **Grafana on host port 3000** — admin panel moved to 3001 via `ADMIN_PANEL_PORT`.
+- **Push blocked on credentials:** `git push` over HTTPS fails with no GitHub credentials on this
+  machine. The user must push (or set up `gh auth login`). The repo is confirmed **private**.
+- **Mobile (390px), upstream layout:** on the login page the light/dark and contrast toggle icons
+  (bottom-left) overlap the "Privacy policy" link in both modes. This is upstream layout, not caused
+  by the MTN theme, and cannot be fixed by config (§10).
+- **Dark mode keeps LibreChat green** for the login Continue button and the auth/policy links
+  (`#047857`, `#41A79D`). It passes AA, but it isn't MTN-branded. Revisit when MTN confirms the dark
+  palette (§10).
+- **Dark mode selected sidebar row** uses LibreChat's subtle grey, so selection is much weaker than
+  the light-mode yellow (non-text indicator; not part of the text-contrast check).
 
 ### Decisions waiting on MTN
 
-- Brand palette, logo, favicon, welcome copy, privacy/ToS URLs (Phase 1).
+- Phase 1 content: welcome copy, footer, help/privacy/terms URLs and terms text; the exact dark-mode
+  palette; a **vector (SVG) logo**; confirmation that the **Newlyn Works font licence** covers web embedding.
 - IdP: OIDC discovery URL + client, SAML metadata/certificate (Phase 2).
 - Primary model provider **and embeddings provider** (curate `modelSpecs`).
 - Storage / data-residency target (`s3` vs `azure_blob`, managed Mongo/Meili/pgvector).
@@ -241,39 +228,48 @@ Start/stop: `docker compose up -d` / `docker compose down` (data persists in nam
 
 ### Recommended next steps
 
-1. Get MTN brand inputs and start Phase 1 (config/theme only).
-2. Chase IdP details for Phase 2; plan the prod switch to `ALLOW_REGISTRATION=false`.
-3. Choose an embeddings provider so RAG/file search can be validated.
-4. Free Docker VM disk (or raise its limit) before building the Phase 4 Code Interpreter image.
+1. **Start Phase 4 — Office document generation** (next in execution order 1 → 4 → 2 → 3 → 5 → 6).
+   Step 1: self-hosted Code Interpreter (`librechat-code` service, `LIBRECHAT_CODE_BASEURL` /
+   `LIBRECHAT_CODE_API_KEY`, `execute_code`) with `python-docx`, `python-pptx`, `openpyxl`,
+   `pandas`, `matplotlib` in the image. Check Docker VM disk (11.7 GB free) first.
+2. Push `mtn/employee-ai` to `origin` (needs the user's GitHub credentials).
+3. In parallel, chase MTN for Phase 1 content (copy, URLs, terms, SVG logo, font licence) and the
+   Phase 2 IdP details (OIDC/SAML); plan the prod switch to `ALLOW_REGISTRATION=false`.
+4. Choose an embeddings provider so RAG/file search can be validated.
+5. Run Lighthouse once `npm ci` and a local build exist.
 
 ---
 
-## 8. Git state
+## 8. Git state (2026-11-08)
 
-```
-$ git log --oneline -3
-0481405737 docs(mtn): project guide and Phase 0 baseline
-f4154b649 🦿 chore: Bump Agents SDK to 4.2.1 (#17664)
-e9be9f873 🎋 fix: Scope Document Replay Budgets to Each Message (#17687)
+### Local branches
 
-$ git show --stat 0481405737
- CLAUDE.md                   | 195 ++++
- docs/mtn/HANDOVER_REPORT.md | 249 ++++
- 2 files changed, 444 insertions(+)
+| Branch | Tip | Tracks | Status |
+|---|---|---|---|
+| `main` | `f4154b649` 🦿 chore: Bump Agents SDK to 4.2.1 (#17664) | `upstream/main` | Identical to upstream; nothing local |
+| `mtn/employee-ai` (current) | see below | **none** | **Never pushed.** `origin` has no MTN branch, and there are no `origin/*` refs locally |
 
-$ git status   (immediately after the commit)
-On branch mtn/employee-ai
-nothing to commit, working tree clean
-```
+### Commits not yet pushed (`git log mtn/employee-ai --not --remotes`)
 
-- Commit `0481405737067148c6381bd1d4fd93784177c3a6` on `mtn/employee-ai`, **not pushed**.
-- `.env`, `librechat.yaml`, `docker-compose.override.yml` confirmed gitignored and not committed.
-- This §8 was written after the commit, so this report now has one uncommitted change; commit
-  it with the next MTN docs change (or amend before the first push).
+| Commit | Message |
+|---|---|
+| *(this commit)* | docs(mtn): phase 1 handover refresh |
+| `025e5269c` | feat(mtn): Phase 1 branding — MTN logo, fonts, theme |
+| `f9c2ebd84` | docs(mtn): set execution order 1-4-2-3-5-6, Groq data rule, local schedules flag |
+| `d3d5eae45` | docs(mtn): record Phase 0 commit in handover report |
+| `048140573` | docs(mtn): project guide and Phase 0 baseline |
+
+- All on top of upstream `f4154b649`. `main` has no unpushed commits.
+- **Not pushed** on purpose: the push attempt failed for lack of GitHub credentials, and this
+  refresh was committed with "do not push". To publish: `git push -u origin mtn/employee-ai`
+  (private repo `github.com/manijami/mtnchatbot`).
+- Never committed (gitignored): `.env`, root `librechat.yaml` (symlink),
+  `docker-compose.override.yml`, `mtn/branding/private/` (licensed fonts, official logo).
+  `mtn/config/librechat.yaml` is tracked via a one-time `git add -f`.
 
 ---
 
-## 9. Phase 1 — Configuration & branding (in progress)
+## 9. Phase 1 — Configuration & branding (done; MTN content pending)
 
 Started 2026-11-08 with placeholders. The **official MTN logo and MTN Brighter Sans fonts** were
 supplied the same day and are now live. **No LibreChat source changed.** Everything is config, env,
@@ -354,3 +350,135 @@ services:
 - **User avatar initials** keep LibreChat's generated colours. `rgb-avatar-fill` does not affect
   them.
 - **`modelSpecs` curation** is still deferred until the primary provider is chosen.
+
+---
+
+## 10. Phase 1 accessibility and mobile checks (2026-11-08)
+
+### WCAG contrast — effective theme (LibreChat defaults + MTN overrides)
+
+Generated by `node mtn/scripts/theme-contrast.js . --md`. It reads LibreChat's default light and dark
+palettes (`packages/data-provider/src/themes/{default,dark}.ts`) and applies the overrides in
+`mtn/config/librechat.yaml`. **Re-run it after any palette change.**
+- **Thresholds:** text needs **4.5:1** (WCAG 1.4.3 AA, normal text). UI indicators marked "(UI)" need
+  **3:1** (WCAG 1.4.11).
+- **Asterisk:** `*` marks a pair that involves at least one MTN-overridden token.
+- **Pairs follow real component usage.** The chat send button is `surface-inverted` +
+  `text-inverted` (`composerSubmitClasses`). `surface-submit` + `text-on-status` is used by the
+  Save/Submit text buttons, which sit on `surface-primary`/`surface-dialog`.
+
+**Result: 74 / 74 pairs pass AA. No theme fixes were needed.** The first draft of this check paired
+`surface-submit` with `surface-composer` (2.44:1). That combination is never rendered, because the
+send button uses `surface-inverted`, so the pair was replaced with the real ones (all pass). The
+config comment and `CLAUDE.md`, which had attributed the dark-mode yellow decision to the send
+button, were corrected.
+
+| Mode | Foreground | Background | Colours | Ratio | Needs | AA |
+|---|---|---|---|---|---|---|
+| light | `text-primary` | `surface-primary` | #212121 / #FFFFFF | 16.10:1 | 4.5:1 | ✅ Pass |
+| light | `text-primary` | `surface-secondary` | #212121 / #F7F7F8 | 15.04:1 | 4.5:1 | ✅ Pass |
+| light | `text-primary` | `surface-chat` | #212121 / #FFFFFF | 16.10:1 | 4.5:1 | ✅ Pass |
+| light | `text-primary` | `surface-sidebar` | #212121 / #F7F7F8 | 15.04:1 | 4.5:1 | ✅ Pass |
+| light | `text-primary` | `surface-composer` | #212121 / #FFFFFF | 16.10:1 | 4.5:1 | ✅ Pass |
+| light | `text-primary` | `surface-dialog` | #212121 / #FFFFFF | 16.10:1 | 4.5:1 | ✅ Pass |
+| light | `text-primary` * | `surface-user-message` | #212121 / #FFF3C4 | 14.47:1 | 4.5:1 | ✅ Pass |
+| light | `text-primary` * | `surface-nav-selected` | #212121 / #FFE380 | 12.69:1 | 4.5:1 | ✅ Pass |
+| light | `text-primary` * | `surface-tab-selected` | #212121 / #FFE380 | 12.69:1 | 4.5:1 | ✅ Pass |
+| light | `text-secondary` | `surface-primary` | #424242 / #FFFFFF | 10.05:1 | 4.5:1 | ✅ Pass |
+| light | `text-secondary` | `surface-chat` | #424242 / #FFFFFF | 10.05:1 | 4.5:1 | ✅ Pass |
+| light | `text-secondary` | `surface-sidebar` | #424242 / #F7F7F8 | 9.39:1 | 4.5:1 | ✅ Pass |
+| light | `text-secondary` * | `surface-user-message` | #424242 / #FFF3C4 | 9.03:1 | 4.5:1 | ✅ Pass |
+| light | `text-secondary` * | `surface-nav-selected` | #424242 / #FFE380 | 7.92:1 | 4.5:1 | ✅ Pass |
+| light | `text-tertiary` | `surface-primary` | #595959 / #FFFFFF | 7.00:1 | 4.5:1 | ✅ Pass |
+| light | `text-tertiary` | `surface-chat` | #595959 / #FFFFFF | 7.00:1 | 4.5:1 | ✅ Pass |
+| light | `text-tertiary` | `surface-sidebar` | #595959 / #F7F7F8 | 6.54:1 | 4.5:1 | ✅ Pass |
+| light | `text-tertiary` * | `surface-nav-selected` | #595959 / #FFE380 | 5.52:1 | 4.5:1 | ✅ Pass |
+| light | `text-on-status` * | `surface-submit` | #FFFFFF / #000000 | 21.00:1 | 4.5:1 | ✅ Pass |
+| light | `text-on-status` * | `surface-submit-hover` | #FFFFFF / #333333 | 12.63:1 | 4.5:1 | ✅ Pass |
+| light | `text-on-status` | `surface-destructive` | #FFFFFF / #B91C1C | 6.47:1 | 4.5:1 | ✅ Pass |
+| light | `text-inverted` * | `button-primary` | #FFFFFF / #000000 | 21.00:1 | 4.5:1 | ✅ Pass |
+| light | `text-inverted` * | `button-primary-hover` | #FFFFFF / #333333 | 12.63:1 | 4.5:1 | ✅ Pass |
+| light | `text-inverted` | `surface-inverted` | #FFFFFF / #171717 | 17.93:1 | 4.5:1 | ✅ Pass |
+| light | `avatar-text` * | `avatar-fill` | #000000 / #FFCB05 | 13.80:1 | 4.5:1 | ✅ Pass |
+| light | `link` | `surface-chat` | #2563EB / #FFFFFF | 5.17:1 | 4.5:1 | ✅ Pass |
+| light | `link` | `surface-primary` | #2563EB / #FFFFFF | 5.17:1 | 4.5:1 | ✅ Pass |
+| light | `link-hover` | `surface-chat` | #1D4ED8 / #FFFFFF | 6.70:1 | 4.5:1 | ✅ Pass |
+| light | `link-prose` | `surface-chat` | #2563EB / #FFFFFF | 5.17:1 | 4.5:1 | ✅ Pass |
+| light | `focus-outline` | `surface-chat` | #000000 / #FFFFFF | 21.00:1 | 3:1 (UI) | ✅ Pass |
+| light | `focus-outline` | `surface-primary` | #000000 / #FFFFFF | 21.00:1 | 3:1 (UI) | ✅ Pass |
+| light | `ring-primary` | `surface-primary` | #595959 / #FFFFFF | 7.00:1 | 3:1 (UI) | ✅ Pass |
+| light | `border-field-focus` * | `field-fill` | #000000 / #FFFFFF | 21.00:1 | 3:1 (UI) | ✅ Pass |
+| light | `surface-inverted` | `surface-composer` | #171717 / #FFFFFF | 17.93:1 | 3:1 (UI) | ✅ Pass |
+| light | `text-inverted` | `surface-inverted` | #FFFFFF / #171717 | 17.93:1 | 3:1 (UI) | ✅ Pass |
+| light | `surface-submit` * | `surface-primary` | #000000 / #FFFFFF | 21.00:1 | 3:1 (UI) | ✅ Pass |
+| light | `surface-submit` * | `surface-dialog` | #000000 / #FFFFFF | 21.00:1 | 3:1 (UI) | ✅ Pass |
+| dark | `text-primary` | `surface-primary` | #ECECEC / #0D0D0D | 16.45:1 | 4.5:1 | ✅ Pass |
+| dark | `text-primary` | `surface-secondary` | #ECECEC / #212121 | 13.63:1 | 4.5:1 | ✅ Pass |
+| dark | `text-primary` | `surface-chat` | #ECECEC / #2F2F2F | 11.33:1 | 4.5:1 | ✅ Pass |
+| dark | `text-primary` | `surface-sidebar` | #ECECEC / #171717 | 15.18:1 | 4.5:1 | ✅ Pass |
+| dark | `text-primary` | `surface-composer` | #ECECEC / #2F2F2F | 11.33:1 | 4.5:1 | ✅ Pass |
+| dark | `text-primary` | `surface-dialog` | #ECECEC / #121212 | 15.86:1 | 4.5:1 | ✅ Pass |
+| dark | `text-primary` | `surface-user-message` | #ECECEC / #2F2F2F | 11.33:1 | 4.5:1 | ✅ Pass |
+| dark | `text-primary` | `surface-nav-selected` | #ECECEC / #2F2F2F | 11.33:1 | 4.5:1 | ✅ Pass |
+| dark | `text-primary` | `surface-tab-selected` | #ECECEC / #2F2F2F | 11.33:1 | 4.5:1 | ✅ Pass |
+| dark | `text-secondary` | `surface-primary` | #CDCDCD / #0D0D0D | 12.23:1 | 4.5:1 | ✅ Pass |
+| dark | `text-secondary` | `surface-chat` | #CDCDCD / #2F2F2F | 8.42:1 | 4.5:1 | ✅ Pass |
+| dark | `text-secondary` | `surface-sidebar` | #CDCDCD / #171717 | 11.28:1 | 4.5:1 | ✅ Pass |
+| dark | `text-secondary` | `surface-user-message` | #CDCDCD / #2F2F2F | 8.42:1 | 4.5:1 | ✅ Pass |
+| dark | `text-secondary` | `surface-nav-selected` | #CDCDCD / #2F2F2F | 8.42:1 | 4.5:1 | ✅ Pass |
+| dark | `text-tertiary` | `surface-primary` | #999696 / #0D0D0D | 6.62:1 | 4.5:1 | ✅ Pass |
+| dark | `text-tertiary` | `surface-chat` | #999696 / #2F2F2F | 4.56:1 | 4.5:1 | ✅ Pass |
+| dark | `text-tertiary` | `surface-sidebar` | #999696 / #171717 | 6.11:1 | 4.5:1 | ✅ Pass |
+| dark | `text-tertiary` | `surface-nav-selected` | #999696 / #2F2F2F | 4.56:1 | 4.5:1 | ✅ Pass |
+| dark | `text-on-status` | `surface-submit` | #FFFFFF / #047857 | 5.48:1 | 4.5:1 | ✅ Pass |
+| dark | `text-on-status` | `surface-submit-hover` | #FFFFFF / #065F46 | 7.68:1 | 4.5:1 | ✅ Pass |
+| dark | `text-on-status` | `surface-destructive` | #FFFFFF / #991B1B | 8.31:1 | 4.5:1 | ✅ Pass |
+| dark | `text-inverted` | `button-primary` | #171717 / #FFFFFF | 17.93:1 | 4.5:1 | ✅ Pass |
+| dark | `text-inverted` | `button-primary-hover` | #171717 / #ECECEC | 15.18:1 | 4.5:1 | ✅ Pass |
+| dark | `text-inverted` | `surface-inverted` | #171717 / #FFFFFF | 17.93:1 | 4.5:1 | ✅ Pass |
+| dark | `avatar-text` * | `avatar-fill` | #000000 / #FFCB05 | 13.80:1 | 4.5:1 | ✅ Pass |
+| dark | `link` * | `surface-chat` | #FFCB05 / #2F2F2F | 8.80:1 | 4.5:1 | ✅ Pass |
+| dark | `link` * | `surface-primary` | #FFCB05 / #0D0D0D | 12.77:1 | 4.5:1 | ✅ Pass |
+| dark | `link-hover` * | `surface-chat` | #FFDD5C / #2F2F2F | 10.04:1 | 4.5:1 | ✅ Pass |
+| dark | `link-prose` * | `surface-chat` | #FFCB05 / #2F2F2F | 8.80:1 | 4.5:1 | ✅ Pass |
+| dark | `focus-outline` * | `surface-chat` | #FFCB05 / #2F2F2F | 8.80:1 | 3:1 (UI) | ✅ Pass |
+| dark | `focus-outline` * | `surface-primary` | #FFCB05 / #0D0D0D | 12.77:1 | 3:1 (UI) | ✅ Pass |
+| dark | `ring-primary` * | `surface-primary` | #FFCB05 / #0D0D0D | 12.77:1 | 3:1 (UI) | ✅ Pass |
+| dark | `border-field-focus` * | `field-fill` | #FFCB05 / #0D0D0D | 12.77:1 | 3:1 (UI) | ✅ Pass |
+| dark | `surface-inverted` | `surface-composer` | #FFFFFF / #2F2F2F | 13.39:1 | 3:1 (UI) | ✅ Pass |
+| dark | `text-inverted` | `surface-inverted` | #171717 / #FFFFFF | 17.93:1 | 3:1 (UI) | ✅ Pass |
+| dark | `surface-submit` | `surface-primary` | #047857 / #0D0D0D | 3.54:1 | 3:1 (UI) | ✅ Pass |
+| dark | `surface-submit` | `surface-dialog` | #047857 / #121212 | 3.42:1 | 3:1 (UI) | ✅ Pass |
+
+**Rendered login page, measured in the browser** (computed colours; it catches tokens outside the
+table above):
+
+| Element | Light | Dark |
+|---|---|---|
+| "Welcome back" heading | #212121 on #FFFFFF — 16.10:1 ✅ | #ECECEC on #0D0D0D — 16.45:1 ✅ |
+| Continue button label | #FFFFFF on #000000 — 21.00:1 ✅ | #FFFFFF on #047857 — 5.48:1 ✅ |
+| "Don't have an account?" | #424242 on #FFFFFF — 10.05:1 ✅ | #CDCDCD on #0D0D0D — 12.23:1 ✅ |
+| "Sign up" / "Privacy policy" links | #000000 on #FFFFFF — 21.00:1 ✅ | #41A79D on #0D0D0D — 6.70:1 ✅ |
+| Field label | #595959 on #FFFFFF — 7.00:1 ✅ | #999696 on #0D0D0D — 6.62:1 ✅ |
+
+### Mobile width (390px), light and dark
+
+The Chrome window could not be resized (it stayed 1920px), so the app was loaded in a 390×700
+same-origin iframe. The app's viewport was confirmed at **390px**, so its media queries and mobile
+layout apply exactly as on a phone. Horizontal overflow was checked with
+`scrollWidth > innerWidth` on every screen.
+
+| Screen | Light | Dark |
+|---|---|---|
+| Login | ✅ Logo, form and Continue fit; no overflow; MTN font. ⚠️ Theme toggle icons overlap "Privacy policy" (upstream layout) | ✅ Same layout, no overflow. ⚠️ Same icon overlap; Continue and links are LibreChat green |
+| Chat (new + existing conversation) | ✅ Welcome wraps cleanly; yellow-tint user bubble; composer pinned to the bottom; footer hidden at this width (upstream behaviour); no overflow | ✅ Readable; no overflow |
+| Sidebar (drawer) | ✅ Opens full-width; yellow selected row; no overflow | ✅ No overflow. Selected row is a subtle grey (weak, non-text indicator) |
+
+Follow-ups (none block Phase 4):
+1. **Login icon overlap** at ≤390px. Upstream layout; fixing it needs a client change, so report it
+   upstream or handle it in a later build. Not fixable by config.
+2. **Dark-mode brand accents.** Login CTA, links and the selected sidebar row use LibreChat
+   green/grey. Set dark `surface-submit`/link/nav-selected tokens once MTN confirms the dark palette,
+   then re-run the contrast script.
+
+Screenshots from these checks were saved locally by the browser tool (not committed).

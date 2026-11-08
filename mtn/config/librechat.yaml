@@ -34,8 +34,10 @@ interface:
   # exact values to be confirmed by MTN brand). Partial token set: anything not named
   # here keeps the LibreChat default, so contrast-checked defaults still apply.
   # Light: black primary actions, yellow tints for selection. Dark: yellow for focus,
-  # links and avatars only (yellow behind the send button would force a dark
-  # `text-on-status` label, which also sits on the red/status fills).
+  # links and avatars only. Yellow `surface-submit` (the Save/Submit text buttons) would
+  # need a dark `text-on-status` label, and that label also sits on the red/status fills.
+  # The chat send button uses surface-inverted/text-inverted instead.
+  # WCAG check of every text/background pair: docs/mtn/HANDOVER_REPORT.md §10 (all AA pass).
   theme:
     version: 1
     name: 'MTN (placeholder)'
