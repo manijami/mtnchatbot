@@ -290,6 +290,16 @@ Record every deviation from upstream here with rationale, so future upstream mer
   upstream (digest-pinned, commit `f4154b649`) → branding → core-deviation overlay. The overlay
   build fails unless the base image's sources match `mtn/deploy/base-fingerprint.sha256`. Upgrade
   procedure: "Upgrading the upstream base" above.
+- _2026-11-08_ — **Dev model: NVIDIA Nemotron 3 Ultra is the MTN Document Assistant default;
+  Groq `gpt-oss-120b` is the fallback.** Chosen on a 12-prompt + multi-turn-revision tool-call
+  probe run against the real office-mcp (Nemotron: median ~11 s per call, no over-asking, no 429s;
+  Muse Glimmer was as accurate but 4x slower, p90 ~2 min). The assistant is two `modelSpecs`
+  entries (instructions in `promptPrefix`, `mcpServers: [mtn-office]`, File Search), not a
+  database agent: the agents REST API rejects non-browser clients (`uaParser`), so a scripted REST
+  seed would need a faked browser User-Agent. **NVIDIA-hosted endpoints are dev-only and take
+  synthetic data only.** Nemotron is a candidate for self-hosting via NVIDIA NIM in Phase 3
+  (licence to be confirmed). RAG embeddings in dev also use NVIDIA (`nvidia/nemotron-3-embed-1b`,
+  `mtn/deploy/compose.rag-nvidia.yml`).
 - _2026-11-08_ — **Local dev:** `SCHEDULES_SINGLE_PROCESS=true` in `.env` (single API replica, no
   Redis) so the schedules engine arms. Not for multi-replica deployments.
 
@@ -297,8 +307,8 @@ Record every deviation from upstream here with rationale, so future upstream mer
 
 - **Never** place credentials, API keys, or secrets in this file, docs, or committed config.
   Secrets live in `.env` (git-ignored) and the deployment secret store.
-- **Do not use real MTN data with the Groq endpoint.** Groq is a third-party dev/test provider,
-  not MTN-approved. Use synthetic or public test data only. Real MTN data may only go to an
+- **Do not use real MTN data with the Groq or NVIDIA-hosted endpoints** (chat or embeddings).
+  Both are third-party dev/test providers, not MTN-approved. Use synthetic or public test data only. Real MTN data may only go to an
   MTN-approved provider once one is confirmed.
 - **Never commit `.claude/helpers/` or `.claude/settings.local.json`.** They are per-machine
   Claude Code tooling (hook scripts, local permission allowlist), not project source.
