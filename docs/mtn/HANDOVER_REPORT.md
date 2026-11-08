@@ -1,7 +1,7 @@
 # MTN Employee AI Assistant — Handover Report
 
 **Last updated:** 2026-11-08 (Phase 0 accepted; Phase 1 done with placeholder copy; **Phase 4 built and
-acceptance-tested on branch `mtn/phase4-office`**, second-user check pending, see §11)
+acceptance-tested on branch `mtn/phase4-office`**, speed pass done; second-user API check not yet observed, §11)
 **Prepared for:** external reviewer / incoming contributor
 **Scope:** upstream LibreChat running locally via Docker, with MTN configuration, a thin branding
 image, the **office-mcp** document service, and **one approved core change** (MCP file outputs,
@@ -17,7 +17,7 @@ image, the **office-mcp** document service, and **one approved core change** (MC
 | Upstream base | `f4154b649` — "🦿 chore: Bump Agents SDK to 4.2.1 (#17664)" (2026-10-31) |
 | `package.json` version | `v0.8.9-rc1` (`git describe`: `v0.8.9-rc1-84-gf4154b649`) |
 | Remotes | `origin` → `https://github.com/manijami/mtnchatbot.git`; `upstream` → `https://github.com/LibreChat-AI/LibreChat.git` (no credentials in URLs) |
-| MTN commits | `mtn/employee-ai`: 6. `mtn/phase4-office`: +15 (Phase 4). Full list in §8. |
+| MTN commits | `mtn/employee-ai`: 6. `mtn/phase4-office`: +21 (Phase 4). Full list in §8. |
 | Source diff vs upstream | **One approved core deviation** (MCP file outputs): `packages/data-provider` (schema field, default off), `packages/api` (logic + tests), ~75 lines of `/api` wiring. Everything else is MTN files: `CLAUDE.md`, `docs/mtn/`, `mtn/`, `.env.mtn.example`, `.gitignore`. |
 | Licensed assets | MTN Brighter Sans fonts and official logo files are in gitignored `mtn/branding/private/` and were **never committed** (checked before each commit). |
 
@@ -140,11 +140,12 @@ the **Groq** custom endpoint, model `openai/gpt-oss-120b`, as test user `phase0t
 | **Office: PowerPoint** | MTN Phase 4 | `create_powerpoint_presentation`, fit + bounds check | Dev: via MTN Document Assistant | "Create a five-slide presentation summarising the attached PDF" | **Tested OK** (Nemotron): 5 slides, bounds check 0 issues (36 shapes), native table, notes; figures only from the PDF. 3rd call (fixable errors: `numbered` on a slide, 7 bullets). |
 | **Office: Excel** | MTN Phase 4 | `create_excel_workbook`, LibreOffice recalculation check | Dev: via MTN Document Assistant | Tracker with formulas, filters, highlighting, chart | **Tested OK** (Nemotron, 1st call): table with filters, dropdowns, conditional formats, summary + chart; 13 formulas recalculated, 0 errors. |
 | **Office: revisions (v2 keeps v1)** | MTN Phase 4 | `revise_office_file`, `get_generation_status` | Dev | "Shorten slide 2 and add a risks table to slide 5" | **Tested OK** (Nemotron, 1st call): slide 2 5→4 bullets, slide 5 gains the table, slides 3–4 unchanged; v1 file byte-identical (stored hash = disk). |
-| **Office: owner isolation** | MTN Phase 4 | office-mcp owner scoping; LibreChat file ACLs | Dev | Second user lists / previews / downloads the owner's file | office-mcp: **Tested OK** (valid token + other user's `X-MTN-User-Id` → 404 for every version and artifact). LibreChat API with a real second user: **pending** (needs the second user to sign in, §11). |
+| **Office: owner isolation** | MTN Phase 4 | office-mcp owner scoping; LibreChat file ACLs | Dev | Second user lists / previews / downloads the owner's file | office-mcp: **Tested OK** (valid token + other user's `X-MTN-User-Id` → 404 for every version and artifact). LibreChat API with a real second user: **not yet observed** (§11). |
 | **MTN Document Assistant** | MTN Phase 4 (`cfa671e22`) | `modelSpecs` (default: NVIDIA Nemotron 3 Ultra; fallback: Groq `gpt-oss-120b`), `mcpServers: [mtn-office]`, File Search | Dev: default for new chats | Pick from the model menu, use a conversation starter | **Tested OK**: default on new chat with File Search + MTN Office chips and 3 starters; acceptance tests above ran on it. |
 
-**Phase 4 acceptance (2026-11-08, Nemotron 3 Ultra):** Word ✅ · five-slide PDF deck ✅ · Excel tracker ✅ ·
-revision v2 keeps v1 ✅ · files open cleanly + previews inspected ✅ · second-user API check ⏳ (§11).
+**Phase 4 acceptance (2026-11-08, Nemotron 3 Ultra, after the speed pass):** Word ✅ · five-slide PDF
+deck ✅ · Excel tracker ✅ · revision v2 keeps v1 ✅ · files open cleanly + previews inspected ✅ ·
+second-user LibreChat API check ⏳ not yet observed (§11). Demo script: `docs/mtn/phase4-demo-script.md`.
 
 **Phase 0 acceptance (all passed):** register test user ✅ · send chat message ✅ · streaming ✅ ·
 history ✅ · upload PDF and ask about it ✅ (after config fix) · create agent ✅.
@@ -306,7 +307,12 @@ Only `admin-panel` defines a Docker healthcheck; the others were verified by sta
 
 | Commit | Message | Pushed |
 |---|---|---|
-| *(this commit)* | docs(mtn): phase 4 handover, feature register and acceptance results | no |
+| *(this commit)* | docs(mtn): phase 4 speed pass results in the handover report | no |
+| `f5aa134ac` | docs(mtn): phase 4 stakeholder demo script and synthetic demo PDF | no |
+| `473da6e6d` | chore(mtn): drop Muse Glimmer from the picker; shorter closing replies | no |
+| `b2a9d4c48` | perf(mtn): office-mcp speed pass — lenient repairs, worked examples, faster checks | no |
+| `42c972b26` | docs(mtn): phase 4 handover, feature register and acceptance results | no |
+| `471d6e8dd` | fix(mtn): give the Document Assistant today's date | no |
 | `cfa671e22` | feat(mtn): MTN Document Assistant as model specs (Nemotron Ultra default, Groq fallback) | no |
 | `0175277b0` | fix(mtn): office-mcp guidance that models can act on (probe findings) | no |
 | `740cb5fdb` | feat(mtn): NVIDIA endpoint (Nemotron Ultra, Muse Glimmer) and NVIDIA embeddings for RAG | no |
@@ -323,8 +329,8 @@ Only `admin-panel` defines a Docker healthcheck; the others were verified by sta
 | `1adcf7728` | docs(mtn): phase 4 decisions — MCP file outputs, Code Interpreter to phase 3 | **yes** |
 
 - Never committed (gitignored): `.env`, root `librechat.yaml` (symlink), `docker-compose.override.yml`,
-  `mtn/branding/private/` (licensed fonts, official logo), and the untracked `payload.json` in the repo
-  root (the user's own NVIDIA test request).
+  `mtn/branding/private/` (licensed fonts, official logo). An untracked `payload.json` (the user's
+  own NVIDIA test request) is still in the repo root; it is not committed.
 
 ---
 
@@ -514,7 +520,7 @@ bearer token (`apiKey`, constant-time compare); the user identity is the server-
 
 | Suite | Result |
 |---|---|
-| office-mcp (`docker build --target test`) | **85 passed**: auth 8, store 4, templates 15, Word 19, PowerPoint 15, Excel 14, revisions 10 |
+| office-mcp (`docker build --target test`) | **103 passed**: auth 8, store 4, templates 15, Word 21, PowerPoint 16, Excel 15, revisions 10, lenient repairs 10, description examples 4 |
 | `packages/api` MCP/file suites (core change) | 290 passed (fileOutputs 16, MCPManager 265 incl. 4 new, persistence 6 with mongodb-memory-server, subagent 3) |
 | `/api` callbacks | 54 passed (3 new) |
 | `packages/data-provider` MCP/config | 463 passed; `tsc` clean in changed workspaces (telemetry TS2307 is pre-existing, §7) |
@@ -543,21 +549,52 @@ table-plus-chart message.
 
 ### Acceptance (browser, MTN Document Assistant on Nemotron 3 Ultra)
 
-| # | Test | Result | Model calls | Turn time | office-mcp time |
-|---|---|---|---|---|---|
-| 1 | "Create a two-page Word document explaining an IT incident process." | ✅ 2 pages, target met, logo, cover table, branded table | 2 (first rejected by LibreChat's schema check) | 54.5 s | 3.7 s |
-| 2 | "Create a five-slide presentation summarising the attached PDF" (synthetic PDF) | ✅ 5 slides, bounds 0 issues, figures only from the PDF | 3 (fixable errors) | 38.0 s | 3.0 s |
-| 3 | Excel tracker with formulas, filters, highlighting and a chart | ✅ 13 formulas recalculated, 0 errors; filters, dropdowns, conditional formats, summary + chart | 1 | 30.7 s | 5.2 s |
-| 4 | "Shorten slide 2 and add a risks table to slide 5" | ✅ v2: slide 2 5→4 bullets, table on slide 5, slides 3–4 unchanged; **v1 byte-identical** | 1 | 26.3 s | 2.7 s |
-| 5 | Second user cannot list / preview / download the owner's file (LibreChat API) | ⏳ **pending** — needs the second test user to sign in (office-mcp level already ✅) | — | — | — |
-| 6 | Files open cleanly; previews inspected | ✅ all four stored files reopen and render (2 pages / 5 / 1 / 5); recalculated tracker has no error cells; previews checked for overlap and errors | — | — | — |
+Turn time = from sending the message to the saved reply. **Correction:** the first version of this
+table measured from the user message's `createdAt`, which LibreChat writes only after the first
+model call returns, so it understated turn times. New-conversation turns are now measured from the
+conversation's creation, and the revision turn from a browser timestamp taken at send.
 
-Earlier Groq runs (checkpoint 2): Word 3,274 tokens on `gpt-oss-120b` + 208 for the title; the
-office-mcp share of each turn is 2–5 s, almost all of it the LibreOffice render.
+| # | Test | Result | Before speed pass (turn / model calls) | After speed pass (turn / model calls) | office-mcp time before → after |
+|---|---|---|---|---|---|
+| 1 | "Create a two-page Word document explaining an IT incident process." | ✅ 2 pages, target met | 56.2 s / 2 | 35.8 s / 1 and 34.3 s / 1; final run 68.8 s / 1 (model wrote 12 sections, ~620 words; fitted by compact layout level 2, 12.0 s) | 3.7 s → 3.4 s (12.0 s with compact level 2) |
+| 2 | "Create a five-slide presentation summarising the attached PDF" (synthetic PDF) | ✅ 5 slides, bounds 0 issues, figures only from the PDF | 56.5 s / 3 | **22.3 s / 1**; 38.3 s / 1 (slide `numbered` list converted, no retry) | 3.0 s → 2.0–5.1 s |
+| 3 | Excel tracker with formulas, filters, highlighting and a chart | ✅ formulas checked, 0 errors; filters, dropdowns, conditional formats, summary + chart | 31.1 s / 1 | 32.2 s / 1 before the Excel fast path; **20.4 s / 1** after | 5.2 s → 9.0 s → **1.7 s** |
+| 4 | "Shorten slide 2 and add a risks table to slide 5" | ✅ v2: slide 2 shortened, table on slide 5, slides 3–4 unchanged; **v1 byte-identical** | ≥26.3 s / 1 (old method, understated) | **15.6 s / 1** | 2.7 s → 5.2 s |
+| 5 | Second user cannot list / preview / download the owner's file (LibreChat API) | ⏳ **not verified by Claude.** The user reported item 4 done on 2026-11-08, but the test tab was still signed in as the owner and the second account has no session after 06:43 UTC, so no status codes were observed or recorded here. office-mcp level is ✅ (another user's id → 404). | — | — | — |
+| 6 | Files open cleanly; previews inspected | ✅ all stored files reopen and render (2 pages / 5 / 1 / 5); recalculated tracker has no error cells | — | — | — |
+
+**Against the < 25 s target:** the revision (15.6 s), Excel (20.4 s) and one PDF-deck run (22.3 s)
+are under it; Word documents are not (34–69 s). The dominant cost is NVIDIA's hosted throughput,
+measured at **20–32 tokens/s** during the final runs and dropping within a minute. A Word document
+is ~1,000 content tokens plus reasoning, so the model alone needs 30–60 s at that rate. Retries are
+now rare (one model call in every final scenario); office-mcp's share is 2–5 s (12 s when it has to
+tighten a Word layout twice). Turning Nemotron's thinking off was tested and rejected: faster per
+call but first-call success fell from 10/11 to 8/11.
+
+### Speed pass (2026-11-08)
+
+| Probe (Nemotron Ultra, 12 prompts + revision, real office-mcp) | First call | Within 3 calls | Median / p90 per model call |
+|---|---|---|---|
+| Before (run 3) | 7/11 | 11/11 | 14.0 / 27.1 s |
+| After: lenient repairs + worked examples | 10/11 | 10/11 | 11.4 / 17.5 s |
+| After, thinking off (rejected) | 8/11 | 10/11 | 9.2 / 19.4 s |
+| After, final (+ compact Word layouts) | **10/11** | **11/11** | 15.4 / 24.2 s |
+
+Changes (`b2a9d4c48`, `473da6e6d`): lenient repairs recorded in `checks["coercions"]` (slide
+numbered lists → numbered bullets; display text up to 1.5× its limit trimmed at a word boundary;
+harmless unknown fields ignored; chart series beyond 4 dropped from the chart; numbers in table
+cells → text); compact Word layouts before a page-target error; a worked example per tool
+description (tested against strict validation); one LibreOffice run for Excel; two-line slide
+titles; shorter closing replies; Muse Glimmer removed from the picker.
 
 ### Follow-ups
 
-- Support numbered lists on slides (both models kept sending `numbered` on slides; one retry each).
+- Word length overshoot: Nemotron sometimes writes far more than the requested pages (12 sections
+  for 2 pages). Compact layouts absorb it, but the extra tokens cost 20–30 s. Options: a stricter
+  word budget in the instructions, or a smaller/faster model for Word drafting.
+- Turn time depends on the hosted model's throughput (20–32 tok/s on NVIDIA's free endpoint).
+  A self-hosted NIM or an MTN-approved provider with higher throughput is the real lever (Phase 3).
+- Second-user API isolation check (acceptance 5) still to be observed and recorded.
 - Production: build the api image from source in CI (no overlay); move office-mcp records from
   SQLite to managed Postgres/Mongo (Phase 3); align `OFFICE_MCP_RETENTION_DAYS` with LibreChat retention.
 - Editing **employee-uploaded** Office files (only files the same user generated can be revised now).
