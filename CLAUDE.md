@@ -300,6 +300,11 @@ Record every deviation from upstream here with rationale, so future upstream mer
   synthetic data only.** Nemotron is a candidate for self-hosting via NVIDIA NIM in Phase 3
   (licence to be confirmed). RAG embeddings in dev also use NVIDIA (`nvidia/nemotron-3-embed-1b`,
   `mtn/deploy/compose.rag-nvidia.yml`).
+- _2026-11-08_ — **Muse Glimmer removed from the model picker.** `meta/muse-glimmer-30b` was the
+  backup NVIDIA candidate. On the tool-call probe it was as accurate as Nemotron Ultra (10/11 tasks
+  within 3 calls) but 3-4x slower (median 40-43 s per call, p90 up to ~2 min), and in an early
+  run it answered two deck requests in text instead of calling the tool. Only Nemotron Ultra is
+  listed for the `nvidia` endpoint; Groq `gpt-oss-120b` remains the fallback spec.
 - _2026-11-08_ — **Local dev:** `SCHEDULES_SINGLE_PROCESS=true` in `.env` (single API replica, no
   Redis) so the schedules engine arms. Not for multi-replica deployments.
 
