@@ -6,6 +6,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from .files import InsightLimits
+
 MIN_TOKEN_LENGTH = 32
 
 
@@ -45,6 +47,9 @@ class Settings:
     convert_timeout_s: int
     max_file_bytes: int
     preview_image: bool
+    # Excel insights: LibreChat's uploads folder (read-only); empty disables the insight tools.
+    uploads_dir: Path | None = None
+    insight_limits: InsightLimits = InsightLimits()
 
     def __repr__(self) -> str:  # never print the token
         return f"Settings(data_dir={self.data_dir}, templates_dir={self.templates_dir}, port={self.port})"
@@ -69,4 +74,14 @@ def load_settings() -> Settings:
         max_file_bytes=_int("OFFICE_MCP_MAX_FILE_BYTES", 20 * 1024 * 1024, minimum=1024),
         # Off by default: MCP images are forwarded to the model, and text-only models reject them.
         preview_image=_bool("OFFICE_MCP_PREVIEW_IMAGE", False),
+        uploads_dir=Path(os.environ["OFFICE_MCP_UPLOADS_DIR"]) if os.environ.get("OFFICE_MCP_UPLOADS_DIR", "").strip() else None,
+        insight_limits=InsightLimits(
+            max_bytes=_int("INSIGHTS_MAX_FILE_BYTES", 15 * 1024 * 1024, minimum=1024),
+            max_uncompressed_bytes=_int("INSIGHTS_MAX_UNCOMPRESSED_BYTES", 200 * 1024 * 1024, minimum=1024),
+            max_sheets=_int("INSIGHTS_MAX_SHEETS", 10, minimum=1),
+            max_columns=_int("INSIGHTS_MAX_COLUMNS", 100, minimum=1),
+            max_rows=_int("INSIGHTS_MAX_ROWS", 100_000, minimum=1),
+            timeout_s=_int("INSIGHTS_TIMEOUT_S", 20, minimum=1),
+            max_analyses=_int("INSIGHTS_MAX_ANALYSES", 8, minimum=1),
+        ),
     )

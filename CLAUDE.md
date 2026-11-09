@@ -399,14 +399,34 @@ Record every deviation from upstream here with rationale, so future upstream mer
   message starting with the SKILL.md front matter) so it is never taken as the user's request,
   sends skill steps to a fixed passthrough route (`mtn-smart-skill` → balanced), and falls back to
   the backup route when a primary gives no answer within 45 s. Results: `docs/mtn/feature-register.md`.
-- _2026-11-08_ — **CORE DEVIATION #2 — Office preview route** (approved, Stage C):
-  `GET /api/files/:id/preview`. Returns rendered pages (PNG; PDF where useful) for Word/PowerPoint
-  files and a JSON table summary for Excel, produced by office-mcp next to each version. Conditions:
-  - Owner-checked with the existing file access check; anyone else gets 404.
-  - Preview data goes only to the browser: it is never added to message content, tool results or
-    anything sent to a model.
-  - Logic in `packages/api`; `/api` has wiring only; inert unless `interface.mtnLayout` is on.
-  - Tests: owner 200, other user 404, and no preview data in the model request.
+- _2026-11-08, revised 2026-11-09_ — **CORE DEVIATION #2 — Office previews (shrunk).** Upstream
+  already has an owner-checked `GET /api/files/:file_id/preview` (same `fileAccess` check as
+  download) and builds sanitised HTML previews of .docx (mammoth), .xlsx/.csv (SheetJS, ≤ 5,000
+  rows per sheet) and .pptx (its own renderer) for uploads and code-execution outputs
+  (`processCodeOutput`: save as `status: 'pending'`, run `bufferToOfficeHtml`, mark `ready`).
+  MTN Office outputs (deviation #1, `packages/api/src/mcp/fileOutputs.ts`) do not get previews
+  yet. **Deviation #2 is now only: run that same upstream preview step for MTN Office outputs in
+  `fileOutputs.ts`.** No new route; the preview panel (UI step 4) reads the upstream route.
+  Limits accepted for v1: HTML previews show text, tables and approximate slides, not native
+  charts or exact page images (Excel insights sends charts as PNG attachments). Rendered page
+  images stay a later option only if MTN needs that fidelity. Preview data never reaches a model.
+- _2026-11-09_ — **Excel insights (plan approved).** Structured office-mcp tools, no model-written
+  code: `inspect_workbook`, `analyse_workbook` (validated analysis spec, pandas), and files from a
+  saved run (charts as PNG attachments, infographic PNG/PDF, PowerPoint with native charts on
+  `executive_update`, a NEW workbook with a Summary sheet and native charts, data as values; the
+  user's original is never modified; an authoritative HTML dashboard file). The JSON results are
+  the only source of numbers for the model; insight text in files must pass a number check. No
+  inline images are returned to the model. In-chat dashboard = a LibreChat artifact built only
+  from those numbers (the artifact renderer needs browser internet access, which MTN's network
+  may block). Limits via env (15 MB, 10 sheets, 100 columns, 100,000 rows, 20 s, 8 analyses per
+  call). **File access, option A (dev):** LibreChat's local `uploads/` mounted **read-only** into
+  office-mcp; lookups only inside the calling user's folder (`X-MTN-User-Id`), by file name, with
+  path, link, type, size and archive-expansion checks (`office_mcp/files.py`, `FileSource`).
+  **Option B is REQUIRED before production (CORE DEVIATION #3, planned):** an owner-checked
+  internal fetch through LibreChat (service token + user id, same check as download), so S3/Azure
+  storage works; it implements the same `FileSource`. Raw rows stay off the model: spreadsheet
+  uploads use LibreChat's `defaultLLMDeliveryPath` `none` ("stored and reachable by tools",
+  config only); "Upload as Text" would still send rows, so the skill steers users away from it.
 - _2026-11-08_ — **Stage A composer accents in `mtn-overrides.css`.** The yellow composer border
   and yellow send button have no dedicated theme token (the tokens they use are shared with many
   components), so they are scoped to upstream's `data-testid="composer-surface"` and

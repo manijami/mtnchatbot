@@ -37,11 +37,23 @@ services:
       # 0 = keep until deleted. Set to match LibreChat's file retention when one is configured.
       OFFICE_MCP_RETENTION_DAYS: ${OFFICE_MCP_RETENTION_DAYS:-0}
       OFFICE_MCP_PREVIEW_IMAGE: ${OFFICE_MCP_PREVIEW_IMAGE:-false}
+      OFFICE_MCP_UPLOADS_DIR: /uploads
+      # Excel insights limits (defaults shown; override in .env).
+      INSIGHTS_MAX_FILE_BYTES: ${INSIGHTS_MAX_FILE_BYTES:-15728640}
+      INSIGHTS_MAX_SHEETS: ${INSIGHTS_MAX_SHEETS:-10}
+      INSIGHTS_MAX_COLUMNS: ${INSIGHTS_MAX_COLUMNS:-100}
+      INSIGHTS_MAX_ROWS: ${INSIGHTS_MAX_ROWS:-100000}
+      INSIGHTS_TIMEOUT_S: ${INSIGHTS_TIMEOUT_S:-20}
+      INSIGHTS_MAX_ANALYSES: ${INSIGHTS_MAX_ANALYSES:-8}
     volumes:
       - office-data:/data
       - ./mtn/templates:/app/templates:ro
       # Official logo (gitignored). Documents are logo-free when the folder is empty.
       - ./mtn/branding/private/logo:/app/brand/logo:ro
+      # Excel insights, option A (dev): LibreChat's local uploads, READ-ONLY. office-mcp only looks
+      # in the calling user's own folder. Option B (owner-checked fetch, core deviation #3) is
+      # required before production / S3-Azure storage.
+      - ./uploads:/uploads:ro
     # Only `api` can reach it: an internal network, no published ports, no internet.
     networks:
       - office
