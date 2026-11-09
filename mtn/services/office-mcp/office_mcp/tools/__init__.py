@@ -42,3 +42,4 @@ def register(tool: Tool) -> Tool:
 # Tool modules register themselves on import.
 from . import excel_tool, powerpoint_tool, word_tool  # noqa: E402,F401
 from . import revise_tool  # noqa: E402,F401  (after the create tools it reuses)
+from . import insights_tool  # noqa: E402,F401  (Excel insights: inspect_workbook, analyse_workbook)
