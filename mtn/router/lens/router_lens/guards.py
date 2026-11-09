@@ -64,7 +64,7 @@ def has_image(message: dict) -> bool:
 
 def strip_history_images(messages: list) -> int:
     """Replaces image parts in all but the last user message with a text note. Returns the count."""
-    last_user = max((i for i, m in enumerate(messages or []) if m.get("role") == "user"), default=-1)
+    last_user = real_user_index(messages)
     replaced = 0
     for index, message in enumerate(messages or []):
         if index == last_user or not has_image(message):
@@ -82,7 +82,9 @@ def strip_history_images(messages: list) -> int:
 
 
 def latest_user(messages: list) -> dict | None:
-    return next((m for m in reversed(messages or []) if m.get("role") == "user"), None)
+    """The person's latest message (an injected skill body is not one)."""
+    i = real_user_index(messages)
+    return messages[i] if i >= 0 else None
 
 
 def office_request(text: str) -> str | None:
@@ -170,12 +172,30 @@ def _last_user_index(messages: list) -> int:
     return max((i for i, m in enumerate(messages or []) if m.get("role") == "user"), default=-1)
 
 
+def _call_names(messages: list) -> dict:
+    """tool_call_id -> tool name, from every assistant tool call in the history."""
+    names = {}
+    for message in messages or []:
+        for call in message.get("tool_calls") or []:
+            if isinstance(call, dict) and call.get("id"):
+                names[call["id"]] = _tool_name(call)
+    return names
+
+
 def in_tool_loop(messages: list) -> bool:
-    """True while the model is mid tool exchange: a tool call or result follows the last user turn."""
-    start = _last_user_index(messages)
+    """True while the model is mid MTN Office tool exchange (a call or result after the last user turn).
+
+    Other tool exchanges (for example LibreChat's `skill` tool) stay on the text tiers.
+    """
+    names = _call_names(messages)
+    start = real_user_index(messages)
     for message in (messages or [])[start + 1:]:
-        if message.get("role") == "tool" or message.get("tool_calls"):
+        if any(is_office_tool(_tool_name(call)) for call in message.get("tool_calls") or []):
             return True
+        if message.get("role") == "tool":
+            name = message.get("name") or names.get(message.get("tool_call_id"), "")
+            if is_office_tool(name):
+                return True
     return False
 
 
@@ -194,22 +214,46 @@ def revision_request(text: str) -> bool:
     return bool(_REVISION.search(text or ""))
 
 
+# LibreChat's skill tools (load a skill, read a skill file) work on every tier.
+SKILL_TOOL_NAMES = frozenset({"skill", "read_file"})
+
+
 def strip_tools(body: dict) -> None:
+    """Removes every tool except the skill tools; drops the tool fields when none are left."""
+    kept = [tool for tool in body.get("tools") or [] if isinstance(tool, dict) and _tool_name(tool) in SKILL_TOOL_NAMES]
+    if kept:
+        body["tools"] = kept
+        return
     for key in ("tools", "tool_choice", "parallel_tool_calls"):
         body.pop(key, None)
 
 
 def flatten_tool_history(messages: list) -> int:
-    """Turns tool calls and tool results into plain assistant text. Returns how many changed."""
+    """Turns MTN Office tool calls and their results into plain assistant text.
+
+    Text tiers have no Office tools, so those exchanges must not reach them as tool messages.
+    Other exchanges (skills) are kept as they are. Returns how many messages changed.
+    """
+    names = _call_names(messages)
     changed = 0
     for message in messages or []:
-        calls = message.pop("tool_calls", None)
+        calls = message.get("tool_calls")
         if calls:
-            names = ", ".join(_tool_name(call) or "tool" for call in calls)
-            text = message.get("content") if isinstance(message.get("content"), str) else ""
-            message["content"] = (text + "\n" if text else "") + f"[Used tool: {names}]"
-            changed += 1
+            office = [call for call in calls if is_office_tool(_tool_name(call))]
+            if office:
+                kept = [call for call in calls if not is_office_tool(_tool_name(call))]
+                if kept:
+                    message["tool_calls"] = kept
+                else:
+                    message.pop("tool_calls", None)
+                text = message.get("content") if isinstance(message.get("content"), str) else ""
+                note = "[Used tool: " + ", ".join(_tool_name(call) for call in office) + "]"
+                message["content"] = (text + "\n" if text else "") + note
+                changed += 1
         if message.get("role") == "tool":
+            name = message.get("name") or names.get(message.get("tool_call_id"), "")
+            if not is_office_tool(name):
+                continue
             result = message.get("content")
             if isinstance(result, list):
                 result = " ".join(p.get("text", "") for p in result if isinstance(p, dict))
@@ -220,3 +264,47 @@ def flatten_tool_history(messages: list) -> int:
             message.update({"role": "assistant", "content": f"[Tool result] {result}"})
             changed += 1
     return changed
+
+
+# -- skills --------------------------------------------------------------------------------------
+#
+# LibreChat injects a loaded skill's SKILL.md (front matter first) as a user-role message. On the
+# OpenAI wire it carries no marker, so it is recognised by its front matter.
+_SKILL_BODY = re.compile(r"\A\s*---\s*\n\s*name:\s*[\w.-]+\s*\n", re.IGNORECASE)
+
+
+def _text(message: dict) -> str:
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return " ".join(p.get("text", "") for p in content if isinstance(p, dict))
+    return ""
+
+
+def is_skill_message(message: dict) -> bool:
+    return message.get("role") == "user" and bool(_SKILL_BODY.match(_text(message)))
+
+
+def real_user_index(messages: list) -> int:
+    """Index of the latest user message the person typed (skill bodies skipped)."""
+    return max((i for i, m in enumerate(messages or []) if m.get("role") == "user" and not is_skill_message(m)),
+               default=-1)
+
+
+def real_user_text(messages: list) -> str:
+    i = real_user_index(messages)
+    return _text(messages[i]) if i >= 0 else ""
+
+
+def in_skill_step(messages: list) -> bool:
+    """True when, after the person's latest message, a skill was loaded or a skill tool ran."""
+    names = _call_names(messages)
+    for message in (messages or [])[real_user_index(messages) + 1:]:
+        if is_skill_message(message):
+            return True
+        if any(_tool_name(call) in SKILL_TOOL_NAMES for call in message.get("tool_calls") or []):
+            return True
+        if message.get("role") == "tool" and names.get(message.get("tool_call_id"), message.get("name") or "") in SKILL_TOOL_NAMES:
+            return True
+    return False

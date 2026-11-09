@@ -20,6 +20,7 @@ TIER_RULES = {
     "capable": "multi-step analysis or careful judgement",
     "vision": "image attached",
     "documents": "Office file request",
+    "skill": "skill step",
 }
 
 
@@ -31,6 +32,7 @@ class Settings:
     vision_route: str | None = "mtn-smart-vision"  # None: image turns get a polite refusal
     docs_route: str | None = "mtn-smart-docs"  # None: Office requests get the switch-assistant reply
     docs_backup_route: str | None = "mtn-smart-docs-backup"
+    skill_route: str | None = "mtn-smart-skill"  # None: skill steps go through the judge
     docs_instructions: str = ""  # system guidance added on documents turns (Document Assistant's)
     show_footer: bool = False
     redact_prompts: bool = True
@@ -70,6 +72,7 @@ def load_settings() -> Settings:
         vision_route=os.environ.get("ROUTER_VISION_ROUTE", "mtn-smart-vision") or None,
         docs_route=os.environ.get("ROUTER_DOCS_ROUTE", "mtn-smart-docs") or None,
         docs_backup_route=os.environ.get("ROUTER_DOCS_BACKUP_ROUTE", "mtn-smart-docs-backup") or None,
+        skill_route=os.environ.get("ROUTER_SKILL_ROUTE", "mtn-smart-skill") or None,
         docs_instructions=_read_optional(os.environ.get("ROUTER_LENS_DOCS_INSTRUCTIONS")),
         show_footer=_flag("SHOW_ROUTING_FOOTER", False),
         redact_prompts=_flag("REDACT_PROMPTS", True),

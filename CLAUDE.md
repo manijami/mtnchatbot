@@ -386,6 +386,19 @@ Record every deviation from upstream here with rationale, so future upstream mer
   18 s per turn, revision about 11 s. Known: the judge reads the whole conversation, so a short
   "thanks" after a file turn went to the capable tier; a judge-prompt fix changed the verified demo
   routing and was reverted.
+- _2026-11-09_ — **MTN skills (read-only, MTN-curated).** Six skills supplied by MTN in
+  `mtn/skills/mtn-skills/` are mounted read-only at `/app/skill` (LibreChat **deployment skills**,
+  `DEPLOYMENT_SKILLS_DIR`; no core change) and listed per assistant with `modelSpecs[].skills`
+  (Smart Chat, Document Assistant + Groq fallback; the Workplace Assistant later).
+  `interface.skills`: use and create on, share and public **off**. Only fixes to MTN's files:
+  five descriptions shortened to ≤ 180 chars (LibreChat cuts catalogue entries at 250 chars
+  including the name). Both assistant prompts gained one line: load a matching skill first.
+  Router changes needed for Smart Chat: `tool_calling = true` on the judged routes (requests
+  without tools route as before); router-lens keeps the `skill`/`read_file` tools on text tiers,
+  flattens only Office tool exchanges, recognises LibreChat's injected skill text (a user-role
+  message starting with the SKILL.md front matter) so it is never taken as the user's request,
+  sends skill steps to a fixed passthrough route (`mtn-smart-skill` → balanced), and falls back to
+  the backup route when a primary gives no answer within 45 s. Results: `docs/mtn/feature-register.md`.
 - _2026-11-08_ — **CORE DEVIATION #2 — Office preview route** (approved, Stage C):
   `GET /api/files/:id/preview`. Returns rendered pages (PNG; PDF where useful) for Word/PowerPoint
   files and a JSON table summary for Excel, produced by office-mcp next to each version. Conditions:

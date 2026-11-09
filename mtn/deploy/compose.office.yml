@@ -16,6 +16,9 @@ services:
       args:
         BASE_IMAGE: mtn-librechat-src:local
     pull_policy: never
+    volumes:
+      # MTN-curated skills, read-only (LibreChat deployment skills: DEPLOYMENT_SKILLS_DIR=./skill).
+      - ./mtn/skills/mtn-skills:/app/skill:ro
     networks:
       - default
       - office

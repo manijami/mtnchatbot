@@ -97,6 +97,13 @@ interface:
   # No agents marketplace for now (MTN assistants are the model specs below).
   marketplace:
     use: false
+  # Skills: MTN-curated deployment skills (mtn/skills/mtn-skills, mounted read-only) for everyone;
+  # users may keep private skills of their own, but sharing and public skills stay off.
+  skills:
+    use: true
+    create: true
+    share: false
+    public: false
   # Shared links off until MTN sets a sharing policy (decision 2026-11-08).
   sharedLinks:
     create: false
@@ -192,6 +199,13 @@ modelSpecs:
       default: true
       group: 'MTN'
       order: 1
+      skills:
+        - 'meeting-minutes'
+        - 'executive-brief'
+        - 'email-drafter'
+        - 'project-status-report'
+        - 'document-summariser'
+        - 'popia-privacy-check'
       mcpServers:
         - 'mtn-office'
       fileSearch: true
@@ -212,6 +226,9 @@ modelSpecs:
             sensible audience, purpose and structure, and state your assumptions in one short sentence
             afterwards. Ask one brief question only when you cannot tell what kind of file or what topic
             the user wants.
+          - When an MTN skill matches the request (for example meeting minutes or a project status
+            report), load it with the `skill` tool first and follow its structure. If the user asked for a
+            file, still create the file.
           - Pick the template that fits: Word proposal, meeting_minutes or incident_report (also for IT or
             operational processes); PowerPoint executive_update or project_status; Excel action_tracker or
             project_plan.
@@ -236,6 +253,13 @@ modelSpecs:
       description: 'Same assistant on Groq gpt-oss-120b, for when NVIDIA is unavailable (dev only, synthetic data).'
       group: 'MTN'
       order: 2
+      skills:
+        - 'meeting-minutes'
+        - 'executive-brief'
+        - 'email-drafter'
+        - 'project-status-report'
+        - 'document-summariser'
+        - 'popia-privacy-check'
       mcpServers:
         - 'mtn-office'
       fileSearch: true
@@ -256,6 +280,9 @@ modelSpecs:
             sensible audience, purpose and structure, and state your assumptions in one short sentence
             afterwards. Ask one brief question only when you cannot tell what kind of file or what topic
             the user wants.
+          - When an MTN skill matches the request (for example meeting minutes or a project status
+            report), load it with the `skill` tool first and follow its structure. If the user asked for a
+            file, still create the file.
           - Pick the template that fits: Word proposal, meeting_minutes or incident_report (also for IT or
             operational processes); PowerPoint executive_update or project_status; Excel action_tracker or
             project_plan.
@@ -283,6 +310,13 @@ modelSpecs:
       order: 3
       # MTN Office tools: router-lens passes them only to the documents tier (Office requests,
       # tool follow-ups, revisions); every other turn reaches the text tiers without tools.
+      skills:
+        - 'meeting-minutes'
+        - 'executive-brief'
+        - 'email-drafter'
+        - 'project-status-report'
+        - 'document-summariser'
+        - 'popia-privacy-check'
       mcpServers:
         - 'mtn-office'
       conversation_starters:
@@ -297,6 +331,9 @@ modelSpecs:
           You are MTN Smart Chat, a helpful assistant for MTN employees. Today's date is
           {{current_date}}. Answer clearly and concisely; use short headings or lists only when
           they help. Do not invent contact details, prices or currencies that the user did not give.
+          MTN skills cover common work tasks (meeting minutes, executive briefs, emails, project
+          status reports, document summaries, POPIA privacy checks). When a request matches one,
+          load it with the `skill` tool first and follow it.
           Use synthetic or public information only in this development environment.
 
 # Phase 4 — Office document generation (mtn/services/office-mcp, mtn/deploy/compose.office.yml).

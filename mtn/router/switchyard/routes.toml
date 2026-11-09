@@ -62,7 +62,7 @@ type = "llm_classifier"
 mode = "custom"
 default_target = "balanced"
 max_output_tokens = 1024
-tool_calling = false
+tool_calling = true
 prompt = """
 You route employee chat requests to one of three model tiers. Choose the cheapest tier that will answer well.
 - fast: greetings, thanks, small talk, one-line facts, rewording or shortening text the user provides, simple formatting.
@@ -89,7 +89,7 @@ type = "llm_classifier"
 mode = "custom"
 default_target = "balanced"
 max_output_tokens = 1024
-tool_calling = false
+tool_calling = true
 prompt = """
 You route employee chat requests to one of three model tiers. Choose the cheapest tier that will answer well.
 - fast: greetings, thanks, small talk, one-line facts, rewording or shortening text the user provides, simple formatting.
@@ -126,5 +126,12 @@ target = "capable"
 
 [routes.documents_backup]
 id = "mtn-smart-docs-backup"
+type = "passthrough"
+target = "balanced"
+
+# Skill steps (a LibreChat skill was just loaded into the turn): chosen by router-lens, no judge, so
+# a multi-step skill answer stays on one dependable tier (Groq gpt-oss-120b).
+[routes.skill]
+id = "mtn-smart-skill"
 type = "passthrough"
 target = "balanced"

@@ -119,7 +119,7 @@ def build_app(settings: Settings, ledger: Ledger, client: httpx.AsyncClient | No
         if body.get("stream"):
             body["stream_options"] = {**(body.get("stream_options") or {}), "include_usage": True}
         messages = body.get("messages") or []
-        state = TurnState(time.monotonic(), snippet(last_user_text(messages), settings.redact_prompts))
+        state = TurnState(time.monotonic(), snippet(guards.real_user_text(messages), settings.redact_prompts))
 
         def handled(text: str, reason: str, status: str = "handled") -> Response:
             ledger.record(Decision(time.time(), state.prompt, "router-lens", None, "router-lens", reason,
@@ -134,7 +134,7 @@ def build_app(settings: Settings, ledger: Ledger, client: httpx.AsyncClient | No
         vision = bool(latest and guards.has_image(latest))
         if vision and not settings.vision_route:
             return handled(guards.IMAGE_REPLY, "image attached")
-        text = last_user_text(messages)
+        text = guards.real_user_text(messages)  # what the person typed, not an injected skill body
         office_kind = None if vision else guards.office_request(text)
 
         # Documents tier: the request carries the MTN Office tools and the turn is about a file
@@ -158,12 +158,17 @@ def build_app(settings: Settings, ledger: Ledger, client: httpx.AsyncClient | No
             if office_kind:
                 return handled(guards.OFFICE_REPLY.format(kind=office_kind), f"{office_kind} request")
 
-        # Image and Office turns skip the judge: only those tiers can serve them.
-        judge_route = "none" if (vision or docs) else "primary"
+        # A skill step (a skill was loaded into this turn) stays on one fixed tier, with no judge.
+        skill_step = not (vision or docs) and bool(settings.skill_route) and guards.in_skill_step(messages)
+
+        # Image, Office and skill-step turns skip the judge.
+        judge_route = "none" if (vision or docs or skill_step) else "primary"
         if vision:
             route = settings.vision_route
         elif docs:
             route = settings.docs_route
+        elif skill_step:
+            route = settings.skill_route
         else:
             route = settings.primary_route
         backup_route = settings.docs_backup_route if docs else settings.backup_route
@@ -174,8 +179,11 @@ def build_app(settings: Settings, ledger: Ledger, client: httpx.AsyncClient | No
                 await upstream.aread()
                 await upstream.aclose()
         except asyncio.TimeoutError:
-            # The answer has not started within the deadline: answer clearly instead of spinning.
-            return handled(guards.TIMEOUT_REPLY, f"no answer within {int(settings.first_byte_timeout)} s", "timeout")
+            # No answer within the deadline: try the backup route when there is one (a slow or
+            # unavailable provider), otherwise answer clearly instead of spinning.
+            if vision or not backup_route:
+                return handled(guards.TIMEOUT_REPLY, f"no answer within {int(settings.first_byte_timeout)} s", "timeout")
+            retry = True
         except httpx.HTTPError:
             retry = True
         if vision and (retry or upstream.status_code != 200):
@@ -205,6 +213,8 @@ def build_app(settings: Settings, ledger: Ledger, client: httpx.AsyncClient | No
         tier, shown_reason = describe(model, verdict_tier, reason, source)
         if docs:
             tier, shown_reason, source = "documents", docs_reason, "rule"
+        elif skill_step:
+            shown_reason, source = TIER_RULES["skill"], "rule"
         passthrough = {k: v for k, v in upstream.headers.items()
                        if k.startswith("x-model-router") or k.startswith("x-switchyard")}
 

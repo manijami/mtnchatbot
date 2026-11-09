@@ -524,3 +524,107 @@ def test_without_office_tools_an_office_request_still_gets_the_switch_reply(fake
 ])
 def test_revision_requests(text, expected):
     assert guards.revision_request(text) is expected
+
+
+# -- skills (LibreChat `skill` / `read_file` tools) ---------------------------------------------
+
+SKILL_TOOLS = [{"type": "function", "function": {"name": "skill", "parameters": {"type": "object"}}},
+               {"type": "function", "function": {"name": "read_file", "parameters": {"type": "object"}}}]
+
+
+def test_skill_tools_stay_on_text_tier_turns_while_office_tools_are_removed(fake):
+    fake.set("mtn-smart", headers={"x-model-router-selected-model": "openai/gpt-oss-20b",
+                                   "x-switchyard-route-evidence": FAST_EVIDENCE},
+             body=sse(chunk("Hi!"), chunk(finish="stop")))
+    client, _ = make_docs(fake)
+    client.post("/v1/chat/completions", json={"model": "mtn-smart", "stream": True,
+                                              "messages": [{"role": "user", "content": "Minute this: steering call notes"}],
+                                              "tools": OFFICE_TOOLS + SKILL_TOOLS})
+    sent = fake.requests[0]
+    assert sent["model"] == "mtn-smart"
+    assert sorted(t["function"]["name"] for t in sent["tools"]) == ["read_file", "skill"]
+
+
+def test_a_skill_tool_exchange_is_not_an_office_follow_up_and_is_kept_intact(fake):
+    fake.set("mtn-smart-skill", headers={"x-model-router-selected-model": "openai/gpt-oss-120b"},
+             body=sse(chunk("Meeting: Phoenix steering"), chunk(finish="stop")))
+    client, ledger = make_docs(fake)
+    messages = [{"role": "user", "content": "Minute this: Phoenix steering, decided to move go-live."},
+                {"role": "assistant", "content": "", "tool_calls": [{"id": "s1", "type": "function",
+                 "function": {"name": "skill", "arguments": "{\"skillName\": \"meeting-minutes\"}"}}]},
+                {"role": "tool", "tool_call_id": "s1", "content": "# Meeting minutes ..."}]
+    client.post("/v1/chat/completions", json={"model": "mtn-smart", "stream": True, "messages": messages,
+                                              "tools": OFFICE_TOOLS + SKILL_TOOLS})
+    sent = fake.requests[0]
+    assert sent["model"] == "mtn-smart-skill"  # a skill step: fixed tier, not the documents tier
+    assert sent["messages"][1]["tool_calls"][0]["function"]["name"] == "skill"
+    assert sent["messages"][2]["role"] == "tool"
+    assert ledger.recent[0].tier == "balanced"
+
+
+def test_mixed_history_flattens_only_the_office_exchange():
+    messages = [{"role": "user", "content": "make a deck"},
+                {"role": "assistant", "content": "", "tool_calls": [
+                    {"id": "s1", "type": "function", "function": {"name": "skill", "arguments": "{}"}},
+                    {"id": "o1", "type": "function", "function": {"name": "create_powerpoint_presentation_mcp_mtn-office", "arguments": "{}"}}]},
+                {"role": "tool", "tool_call_id": "s1", "content": "skill body"},
+                {"role": "tool", "tool_call_id": "o1", "content": "Created deck.pptx"}]
+    assert guards.flatten_tool_history(messages) == 2
+    assert [c["id"] for c in messages[1]["tool_calls"]] == ["s1"]
+    assert "[Used tool: create_powerpoint_presentation_mcp_mtn-office]" in messages[1]["content"]
+    assert messages[2]["role"] == "tool"
+    assert messages[3] == {"role": "assistant", "content": "[Tool result] Created deck.pptx"}
+
+
+def test_a_slow_documents_route_falls_back_to_its_backup_route():
+    class Transport(httpx.AsyncBaseTransport):
+        def __init__(self):
+            self.models = []
+
+        async def handle_async_request(self, request):
+            model = json.loads(request.content)["model"]
+            self.models.append(model)
+            if model == "mtn-smart-docs":
+                await asyncio.sleep(5)  # the primary never starts answering
+            return httpx.Response(200, headers={"content-type": "text/event-stream",
+                                                "x-model-router-selected-model": "openai/gpt-oss-120b"},
+                                  content=sse(tool_call_chunk(), tool_finish_chunk()).encode())
+
+    transport = Transport()
+    settings = replace(Settings(prices=PRICES, model_tiers=TIERS, stats_poll_seconds=3600), first_byte_timeout=0.2)
+    ledger = Ledger(PRICES, TIERS)
+    client = TestClient(build_app(settings, ledger, httpx.AsyncClient(transport=transport, base_url="http://switchyard:4000")))
+    r = docs_request(client, [{"role": "user", "content": "Create an Excel workbook of team tasks"}])
+    assert r.status_code == 200 and '"tool_calls"' in r.text
+    assert transport.models == ["mtn-smart-docs", "mtn-smart-docs-backup"]
+    assert (ledger.recent[0].tier, ledger.recent[0].judge_route) == ("documents", "backup")
+
+
+SKILL_BODY_MSG = {"role": "user", "content": "---\nname: meeting-minutes\ndescription: Use when asked for minutes. Offer to create a Word file.\n---\n\n# Meeting minutes\nOffer to create a Word document with create_word_document."}
+
+
+def test_a_loaded_skill_body_is_not_mistaken_for_the_users_request(fake):
+    fake.set("mtn-smart-skill", headers={"x-model-router-selected-model": "openai/gpt-oss-120b"},
+             body=sse(chunk("Meeting: Ops sync"), chunk(finish="stop")))
+    client, ledger = make_docs(fake, redact_prompts=False)
+    messages = [{"role": "user", "content": "Minute this: Ops sync, decided to freeze changes."},
+                {"role": "assistant", "content": "", "tool_calls": [{"id": "s1", "type": "function",
+                 "function": {"name": "skill", "arguments": "{\"skillName\": \"meeting-minutes\"}"}}]},
+                {"role": "tool", "tool_call_id": "s1", "content": "Skill loaded."},
+                SKILL_BODY_MSG]
+    client.post("/v1/chat/completions", json={"model": "mtn-smart", "stream": True, "messages": messages,
+                                              "tools": OFFICE_TOOLS + SKILL_TOOLS})
+    sent = fake.requests[0]
+    assert sent["model"] == "mtn-smart-skill"  # skill step, not the documents tier
+    assert "tools" in sent and all(t["function"]["name"] in ("skill", "read_file") for t in sent["tools"])
+    d = ledger.recent[0]
+    assert (d.tier, d.judge_route, d.reason) == ("balanced", "none", "skill step")
+    assert d.prompt.startswith("Minute this")
+
+
+def test_skill_messages_are_recognised_by_their_front_matter():
+    assert guards.is_skill_message(SKILL_BODY_MSG)
+    assert not guards.is_skill_message({"role": "user", "content": "--- quick note ---\nplease summarise"})
+    assert not guards.is_skill_message({"role": "assistant", "content": SKILL_BODY_MSG["content"]})
+    msgs = [{"role": "user", "content": "make it a Word document"}, SKILL_BODY_MSG]
+    assert guards.real_user_text(msgs) == "make it a Word document"
