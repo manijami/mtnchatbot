@@ -23,12 +23,13 @@ Rebuild after adding or changing a file: `docker compose build api`.
 
 | File | Format and size | Where it appears | Fallback |
 |---|---|---|---|
-| `logo.svg` | SVG, or PNG at least 512 px wide, **transparent background**, black outline mark | Top bar (on yellow), sign-in page, light mode | `generated/logo.svg` (made from `logo/yello_logo.jpg`), then the tracked placeholder |
+| `logo.svg` | SVG, or PNG at least 512 px wide: the square artwork (mark centred, as supplied 2026-11-09) or a mark cropped to the oval with a transparent background | Top bar: framed to the oval; on the bar in light mode, on a yellow tile in dark mode | `generated/logo.svg` (made from `logo/yello_logo.jpg`), then the tracked placeholder |
 | `logo-on-dark.svg` | Same, for dark backgrounds (white or yellow mark) | Dark mode, dark sidebar | `logo.svg` |
 
-Already present: `logo/yello_logo.jpg` (8000 px, mark on a yellow square) and `logo/white_logo.png`
-(800 px, mark on a **white, non-transparent** background). Neither can sit directly on the yellow
-top bar. Please supply `logo.svg` with a transparent background.
+Present: `logo/logo.svg` (official SVG, mark on a #FFC403 square; supplied 2026-11-09). Only the
+slot files pass the build context (`mtn/branding/.dockerignore`); the large `yello_logo.jpg` and
+`white_logo.png` sources stay out. A transparent, oval-cropped version would remove the faint
+square that shows because the artwork's yellow (#FFC403) differs from the bar's (#FFCB05).
 
 ### Favicons and app icons: `generated/`
 

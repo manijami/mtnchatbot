@@ -17,7 +17,11 @@ let manifestPromise: Promise<AssetManifest> | null = null;
 
 function loadManifest(): Promise<AssetManifest> {
   if (manifestPromise == null) {
-    manifestPromise = fetch('/assets/mtn/assets.json', { credentials: 'same-origin' })
+    manifestPromise = fetch('/assets/mtn/assets.json', {
+      credentials: 'same-origin',
+      /** Revalidate: the list changes whenever the branding image is rebuilt with new assets. */
+      cache: 'no-cache',
+    })
       .then((response) => (response.ok ? response.json() : { official: [] }))
       .then((data: Partial<AssetManifest>) => ({
         official: Array.isArray(data?.official) ? data.official : [],

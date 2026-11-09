@@ -86,14 +86,24 @@
   left: -18px;
   top: -40px;
 }
+/* Official logo (private/logo/logo.svg): on the yellow bar in light mode; in dark mode on a
+   yellow tile so a black mark stays visible on the black bar. */
 .mtn-logo.mtn-logo-official {
   background: transparent;
+  border-radius: 0;
 }
+.dark .mtn-logo.mtn-logo-official {
+  background: rgb(var(--mtn-yellow));
+  border-radius: 8px;
+}
+/* `cover` frames the oval whether the file is the square artwork (mark centred on a yellow
+   square) or a mark cropped to the oval. */
 .mtn-logo.mtn-logo-official img {
   position: static;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+  object-position: center;
 }
 .mtn-wordmark {
   font-weight: 700;
