@@ -115,3 +115,16 @@ selector = "/decision/target"
 id = "mtn-smart-vision"
 type = "passthrough"
 target = "vision"
+
+# Office documents (Word/PowerPoint/Excel): chosen by router-lens before any judge call, with the
+# MTN Office tool definitions passed through. Nemotron 3 Ultra is the model proven with these tools
+# (MTN Document Assistant); the backup is Groq gpt-oss-120b (the Document Assistant fallback).
+[routes.documents]
+id = "mtn-smart-docs"
+type = "passthrough"
+target = "capable"
+
+[routes.documents_backup]
+id = "mtn-smart-docs-backup"
+type = "passthrough"
+target = "balanced"

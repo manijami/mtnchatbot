@@ -399,3 +399,128 @@ def test_stalled_stream_is_closed_with_a_note():
     assert r.text.rstrip().endswith("data: [DONE]")
     assert ledger.recent[0].status == "stalled"
     assert ledger.summary()["turns"]["fast"] == 1
+
+
+# -- documents tier (MTN Office tools) ---------------------------------------------------------
+
+OFFICE_TOOLS = [{"type": "function", "function": {"name": "create_powerpoint_presentation_mcp_mtn-office",
+                                                  "parameters": {"type": "object"}}},
+                {"type": "function", "function": {"name": "revise_office_file_mcp_mtn-office",
+                                                  "parameters": {"type": "object"}}}]
+DOCS_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
+
+
+def tool_call_chunk():
+    return {"id": "c1", "object": "chat.completion.chunk", "created": 1, "model": DOCS_MODEL,
+            "choices": [{"index": 0, "delta": {"tool_calls": [{"index": 0, "id": "call_1", "type": "function",
+                         "function": {"name": "create_powerpoint_presentation_mcp_mtn-office", "arguments": "{}"}}]},
+                         "finish_reason": None}]}
+
+
+def tool_finish_chunk():
+    return {"id": "c1", "object": "chat.completion.chunk", "created": 1, "model": DOCS_MODEL,
+            "choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}]}
+
+
+def docs_request(client, messages, stream=True):
+    return client.post("/v1/chat/completions", json={"model": "mtn-smart", "stream": stream,
+                                                     "messages": messages, "tools": OFFICE_TOOLS})
+
+
+def make_docs(fake, **overrides):
+    return make(fake, docs_instructions="You are the MTN Document Assistant.", show_footer=True, **overrides)
+
+
+def test_office_request_with_office_tools_goes_to_the_documents_tier(fake):
+    fake.set("mtn-smart-docs", headers={"x-model-router-selected-model": DOCS_MODEL},
+             body=sse(tool_call_chunk(), tool_finish_chunk()))
+    client, ledger = make_docs(fake)
+    r = docs_request(client, [{"role": "user", "content": "Can u make a powerpoint on saturn?"}])
+    assert r.status_code == 200
+    sent = fake.requests[0]
+    assert sent["model"] == "mtn-smart-docs"
+    assert [t["function"]["name"] for t in sent["tools"]][0].startswith("create_powerpoint_presentation")
+    assert sent["messages"][0] == {"role": "system", "content": "You are the MTN Document Assistant."}
+    assert '"tool_calls"' in r.text and "Routed to" not in r.text  # no footer on a tool-call turn
+    d = ledger.recent[0]
+    assert (d.tier, d.judge_route, d.reason) == ("documents", "none", "PowerPoint presentation request")
+
+
+def test_the_answer_after_the_tool_result_stays_on_the_documents_tier_with_a_footer(fake):
+    fake.set("mtn-smart-docs", headers={"x-model-router-selected-model": DOCS_MODEL},
+             body=sse(chunk("Your deck is ready."), chunk(finish="stop")))
+    client, ledger = make_docs(fake)
+    messages = [{"role": "user", "content": "Make a 3-slide deck on Saturn"},
+                {"role": "assistant", "content": "", "tool_calls": [{"id": "call_1", "type": "function", "function": {
+                    "name": "create_powerpoint_presentation_mcp_mtn-office", "arguments": "{}"}}]},
+                {"role": "tool", "tool_call_id": "call_1", "name": "create_powerpoint_presentation_mcp_mtn-office",
+                 "content": "Created Saturn.pptx (3 slides)."}]
+    r = docs_request(client, messages)
+    assert fake.requests[0]["model"] == "mtn-smart-docs"
+    assert "documents tier · Office tool follow-up" in _content(r)
+    assert ledger.recent[0].reason == "Office tool follow-up"
+
+
+def test_a_revision_of_an_earlier_file_goes_to_the_documents_tier(fake):
+    fake.set("mtn-smart-docs", headers={"x-model-router-selected-model": DOCS_MODEL},
+             body=sse(tool_call_chunk(), tool_finish_chunk()))
+    client, ledger = make_docs(fake)
+    messages = [{"role": "user", "content": "Make a deck on Saturn"},
+                {"role": "assistant", "content": "", "tool_calls": [{"id": "call_1", "type": "function", "function": {
+                    "name": "create_powerpoint_presentation_mcp_mtn-office", "arguments": "{}"}}]},
+                {"role": "tool", "tool_call_id": "call_1", "content": "Created Saturn.pptx."},
+                {"role": "assistant", "content": "Your deck is ready."},
+                {"role": "user", "content": "Please make slide 2 shorter"}]
+    docs_request(client, messages)
+    assert fake.requests[0]["model"] == "mtn-smart-docs"
+    assert ledger.recent[0].reason == "revision of an Office file"
+
+
+def test_other_turns_get_no_tools_and_a_plain_text_history(fake):
+    fake.set("mtn-smart", headers={"x-model-router-selected-model": "openai/gpt-oss-20b",
+                                   "x-switchyard-route-evidence": FAST_EVIDENCE},
+             body=sse(chunk("You're welcome!"), chunk(finish="stop")))
+    client, ledger = make_docs(fake)
+    messages = [{"role": "user", "content": "Make a deck on Saturn"},
+                {"role": "assistant", "content": "", "tool_calls": [{"id": "call_1", "type": "function", "function": {
+                    "name": "create_powerpoint_presentation_mcp_mtn-office", "arguments": "{}"}}]},
+                {"role": "tool", "tool_call_id": "call_1", "content": "Created Saturn.pptx."},
+                {"role": "assistant", "content": "Your deck is ready."},
+                {"role": "user", "content": "thanks!"}]
+    docs_request(client, messages)
+    sent = fake.requests[0]
+    assert sent["model"] == "mtn-smart" and "tools" not in sent
+    assert all(m["role"] != "tool" and "tool_calls" not in m for m in sent["messages"])
+    assert "[Used tool: create_powerpoint_presentation_mcp_mtn-office]" in sent["messages"][1]["content"]
+    assert sent["messages"][2] == {"role": "assistant", "content": "[Tool result] Created Saturn.pptx."}
+    assert all(m.get("content") != "You are the MTN Document Assistant." for m in sent["messages"])
+    assert ledger.recent[0].tier == "fast"
+
+
+def test_documents_tier_falls_back_to_its_backup_route(fake):
+    fake.set("mtn-smart-docs", status=503, body={"error": {"message": "busy"}})
+    fake.set("mtn-smart-docs-backup", headers={"x-model-router-selected-model": "openai/gpt-oss-120b"},
+             body=sse(tool_call_chunk(), tool_finish_chunk()))
+    client, ledger = make_docs(fake)
+    r = docs_request(client, [{"role": "user", "content": "Create an Excel workbook of team tasks"}])
+    assert r.status_code == 200
+    assert [q["model"] for q in fake.requests] == ["mtn-smart-docs", "mtn-smart-docs-backup"]
+    assert (ledger.recent[0].tier, ledger.recent[0].judge_route) == ("documents", "backup")
+
+
+def test_without_office_tools_an_office_request_still_gets_the_switch_reply(fake):
+    client, _ = make_docs(fake)
+    r = ask(client, "Can u make a powerpoint on saturn?")
+    assert "MTN Document Assistant" in _content(r)
+    assert fake.requests == []
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("Please make slide 2 shorter", True),
+    ("add a column for priority", True),
+    ("rename the workbook to Q3 tracker", True),
+    ("thanks!", False),
+    ("what is Saturn made of?", False),
+])
+def test_revision_requests(text, expected):
+    assert guards.revision_request(text) is expected

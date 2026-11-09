@@ -373,6 +373,19 @@ Record every deviation from upstream here with rationale, so future upstream mer
   host installs skip peer dependencies (`rc-input-number`, `@radix-ui/react-slot`, and likely the
   earlier `winston-daily-rotate-file` gap). Install with
   `npm ci --legacy-peer-deps=false` for local tests; Docker/CI builds are unaffected.
+- _2026-11-09_ — **Smart Chat documents tier (user request).** MTN Smart Chat now creates and
+  revises Word/PowerPoint/Excel files itself. The spec lists the `mtn-office` MCP server; router-lens
+  sends a turn to the **documents tier** (Switchyard passthrough `mtn-smart-docs` → Nemotron 3
+  Ultra, backup `mtn-smart-docs-backup` → Groq `gpt-oss-120b`), with the tools and the Document
+  Assistant's instructions (`mtn/agents/document-assistant/instructions.md`, mounted read-only),
+  when the request carries the MTN Office tools and the turn is an Office request, a tool
+  follow-up, or a revision of a file made earlier. All other turns go to the judge without tools,
+  with earlier tool exchanges flattened to text. Footer/feed: "documents tier"; these turns count
+  in the cost index at the capable model's price. Supersedes "Office requests in Smart Chat get a
+  switch-assistant reply" (kept only when the tools are absent). Measured: new 4-slide deck about
+  18 s per turn, revision about 11 s. Known: the judge reads the whole conversation, so a short
+  "thanks" after a file turn went to the capable tier; a judge-prompt fix changed the verified demo
+  routing and was reverted.
 - _2026-11-08_ — **CORE DEVIATION #2 — Office preview route** (approved, Stage C):
   `GET /api/files/:id/preview`. Returns rendered pages (PNG; PDF where useful) for Word/PowerPoint
   files and a JSON table summary for Excel, produced by office-mcp next to each version. Conditions:

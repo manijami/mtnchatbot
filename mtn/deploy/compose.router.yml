@@ -43,6 +43,10 @@ services:
       SWITCHYARD_URL: http://switchyard:4000
       SHOW_ROUTING_FOOTER: ${SHOW_ROUTING_FOOTER:-false}
       REDACT_PROMPTS: ${REDACT_PROMPTS:-true}
+      # Documents tier guidance = the MTN Document Assistant's instructions (same file, read-only).
+      ROUTER_LENS_DOCS_INSTRUCTIONS: /etc/router-lens/document-assistant.md
+    volumes:
+      - ./mtn/agents/document-assistant/instructions.md:/etc/router-lens/document-assistant.md:ro
     ports:
       - "127.0.0.1:8090:8090"   # live routing feed only; the API port 8080 stays internal
     networks:

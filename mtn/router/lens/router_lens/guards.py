@@ -4,8 +4,9 @@
   router-lens sends the latest image turn to the vision tier, or answers it politely when the
   vision tier is off or fails. Images in earlier messages become a short note so one image
   does not break the rest of the conversation.
-- Office file requests: Smart Chat has no Office tools; it says how to switch to the MTN
-  Document Assistant instead of producing a long text "deck".
+- Office file requests: with the MTN Office tools in the request they go to the documents tier
+  (see the end of this module); without them, the reply says how to switch to the MTN Document
+  Assistant instead of producing a long text "deck".
 - Slow or stalled models: callers get a clear message instead of an endless spinner.
 """
 
@@ -126,3 +127,96 @@ def stalled_event(model: str = "mtn-smart") -> bytes:
     data = {"id": "router-lens-stalled", "object": "chat.completion.chunk", "created": int(time.time()), "model": model,
             "choices": [{"index": 0, "delta": {"content": STALLED_NOTE}, "finish_reason": "stop"}]}
     return b"data: " + json.dumps(data).encode() + b"\n\ndata: [DONE]\n\n"
+
+
+# -- Office documents tier ----------------------------------------------------------------------
+#
+# When the Smart Chat request carries the MTN Office tool definitions (the spec lists the
+# mtn-office MCP server), Office turns go to the documents tier with those tools; every other turn
+# goes to the text tiers without them, and any earlier tool exchange is flattened to plain text so
+# a text model that has no tools still accepts the history.
+
+OFFICE_TOOL_PREFIXES = (
+    "create_word_document",
+    "create_powerpoint_presentation",
+    "create_excel_workbook",
+    "revise_office_file",
+    "get_generation_status",
+)
+TOOL_RESULT_NOTE_CHARS = 400
+
+_REVISION = re.compile(
+    r"\b(?:revise|edit|update|change|add|insert|remove|delete|rename|shorten|expand|make|move|"
+    r"replace|fix|reword|swap)\b(?:\W+\w+){0,8}?\W+(?:the\s+|a\s+|an\s+)?(?:slides?|sheets?|columns?|"
+    r"rows?|sections?|pages?|titles?|charts?|tables?|documents?|decks?|workbooks?|files?|headings?|"
+    r"bullets?|paragraphs?|version|v\d)\b",
+    re.IGNORECASE,
+)
+
+
+def _tool_name(tool: dict) -> str:
+    return ((tool or {}).get("function") or {}).get("name") or (tool or {}).get("name") or ""
+
+
+def is_office_tool(name: str) -> bool:
+    return any(name.startswith(prefix) for prefix in OFFICE_TOOL_PREFIXES)
+
+
+def has_office_tools(tools) -> bool:
+    return any(is_office_tool(_tool_name(tool)) for tool in tools or [] if isinstance(tool, dict))
+
+
+def _last_user_index(messages: list) -> int:
+    return max((i for i, m in enumerate(messages or []) if m.get("role") == "user"), default=-1)
+
+
+def in_tool_loop(messages: list) -> bool:
+    """True while the model is mid tool exchange: a tool call or result follows the last user turn."""
+    start = _last_user_index(messages)
+    for message in (messages or [])[start + 1:]:
+        if message.get("role") == "tool" or message.get("tool_calls"):
+            return True
+    return False
+
+
+def has_office_history(messages: list) -> bool:
+    """True when an earlier turn called an MTN Office tool (a file exists to revise)."""
+    for message in messages or []:
+        for call in message.get("tool_calls") or []:
+            if is_office_tool(_tool_name(call)):
+                return True
+        if message.get("role") == "tool" and is_office_tool(message.get("name") or ""):
+            return True
+    return False
+
+
+def revision_request(text: str) -> bool:
+    return bool(_REVISION.search(text or ""))
+
+
+def strip_tools(body: dict) -> None:
+    for key in ("tools", "tool_choice", "parallel_tool_calls"):
+        body.pop(key, None)
+
+
+def flatten_tool_history(messages: list) -> int:
+    """Turns tool calls and tool results into plain assistant text. Returns how many changed."""
+    changed = 0
+    for message in messages or []:
+        calls = message.pop("tool_calls", None)
+        if calls:
+            names = ", ".join(_tool_name(call) or "tool" for call in calls)
+            text = message.get("content") if isinstance(message.get("content"), str) else ""
+            message["content"] = (text + "\n" if text else "") + f"[Used tool: {names}]"
+            changed += 1
+        if message.get("role") == "tool":
+            result = message.get("content")
+            if isinstance(result, list):
+                result = " ".join(p.get("text", "") for p in result if isinstance(p, dict))
+            result = (result or "").strip()
+            if len(result) > TOOL_RESULT_NOTE_CHARS:
+                result = result[:TOOL_RESULT_NOTE_CHARS] + "…"
+            message.clear()
+            message.update({"role": "assistant", "content": f"[Tool result] {result}"})
+            changed += 1
+    return changed

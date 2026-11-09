@@ -19,6 +19,7 @@ TIER_RULES = {
     "balanced": "everyday work question",
     "capable": "multi-step analysis or careful judgement",
     "vision": "image attached",
+    "documents": "Office file request",
 }
 
 
@@ -28,6 +29,9 @@ class Settings:
     primary_route: str = "mtn-smart"
     backup_route: str = "mtn-smart-backup-judge"
     vision_route: str | None = "mtn-smart-vision"  # None: image turns get a polite refusal
+    docs_route: str | None = "mtn-smart-docs"  # None: Office requests get the switch-assistant reply
+    docs_backup_route: str | None = "mtn-smart-docs-backup"
+    docs_instructions: str = ""  # system guidance added on documents turns (Document Assistant's)
     show_footer: bool = False
     redact_prompts: bool = True
     api_port: int = 8080
@@ -37,6 +41,15 @@ class Settings:
     idle_timeout: float = 45.0  # longest silence allowed once an answer is streaming
     prices: dict = field(default_factory=dict)
     model_tiers: dict = field(default_factory=dict)
+
+
+def _read_optional(path: str | None) -> str:
+    if not path:
+        return ""
+    try:
+        return Path(path).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
 
 
 def load_settings() -> Settings:
@@ -55,6 +68,9 @@ def load_settings() -> Settings:
         primary_route=os.environ.get("ROUTER_PRIMARY_ROUTE", "mtn-smart"),
         backup_route=os.environ.get("ROUTER_BACKUP_ROUTE", "mtn-smart-backup-judge"),
         vision_route=os.environ.get("ROUTER_VISION_ROUTE", "mtn-smart-vision") or None,
+        docs_route=os.environ.get("ROUTER_DOCS_ROUTE", "mtn-smart-docs") or None,
+        docs_backup_route=os.environ.get("ROUTER_DOCS_BACKUP_ROUTE", "mtn-smart-docs-backup") or None,
+        docs_instructions=_read_optional(os.environ.get("ROUTER_LENS_DOCS_INSTRUCTIONS")),
         show_footer=_flag("SHOW_ROUTING_FOOTER", False),
         redact_prompts=_flag("REDACT_PROMPTS", True),
         api_port=int(os.environ.get("ROUTER_LENS_API_PORT", "8080")),

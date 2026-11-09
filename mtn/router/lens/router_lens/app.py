@@ -79,7 +79,7 @@ def format_latency(ms: int) -> str:
 
 
 def footer_text(model: str, tier: str, reason: str, latency_ms: int) -> str:
-    label = "vision tier" if tier == "vision" else tier
+    label = f"{tier} tier" if tier in ("vision", "documents") else tier
     return f"\n\n*Routed to {model} · {label} · {reason} · {format_latency(latency_ms)}*"
 
 
@@ -134,13 +134,39 @@ def build_app(settings: Settings, ledger: Ledger, client: httpx.AsyncClient | No
         vision = bool(latest and guards.has_image(latest))
         if vision and not settings.vision_route:
             return handled(guards.IMAGE_REPLY, "image attached")
-        office_kind = None if vision else guards.office_request(last_user_text(messages))
-        if office_kind:
-            return handled(guards.OFFICE_REPLY.format(kind=office_kind), f"{office_kind} request")
+        text = last_user_text(messages)
+        office_kind = None if vision else guards.office_request(text)
 
-        # Image turns skip the judge: only the vision tier can read them.
-        judge_route = "none" if vision else "primary"
-        route = settings.vision_route if vision else settings.primary_route
+        # Documents tier: the request carries the MTN Office tools and the turn is about a file
+        # (a new file, a tool exchange in progress, or a revision of a file made earlier).
+        docs_reason = None
+        if not vision and settings.docs_route and guards.has_office_tools(body.get("tools")):
+            if guards.in_tool_loop(messages):
+                docs_reason = "Office tool follow-up"
+            elif office_kind:
+                docs_reason = f"{office_kind} request"
+            elif guards.has_office_history(messages) and guards.revision_request(text):
+                docs_reason = "revision of an Office file"
+        docs = docs_reason is not None
+        if docs:
+            if settings.docs_instructions:
+                messages.insert(0, {"role": "system", "content": settings.docs_instructions})
+        else:
+            # Text tiers get no tools; earlier tool exchanges become plain text they accept.
+            guards.strip_tools(body)
+            guards.flatten_tool_history(messages)
+            if office_kind:
+                return handled(guards.OFFICE_REPLY.format(kind=office_kind), f"{office_kind} request")
+
+        # Image and Office turns skip the judge: only those tiers can serve them.
+        judge_route = "none" if (vision or docs) else "primary"
+        if vision:
+            route = settings.vision_route
+        elif docs:
+            route = settings.docs_route
+        else:
+            route = settings.primary_route
+        backup_route = settings.docs_backup_route if docs else settings.backup_route
         try:
             upstream = await asyncio.wait_for(open_upstream(body, route), settings.first_byte_timeout)
             retry = upstream.status_code in RETRYABLE
@@ -155,10 +181,10 @@ def build_app(settings: Settings, ledger: Ledger, client: httpx.AsyncClient | No
         if vision and (retry or upstream.status_code != 200):
             # Never show a provider's raw error for an image turn.
             return handled(guards.VISION_FAILED_REPLY, "vision tier unavailable", "error")
-        if retry:
+        if retry and backup_route:
             judge_route = "backup"
             try:
-                upstream = await asyncio.wait_for(open_upstream(body, settings.backup_route), settings.first_byte_timeout)
+                upstream = await asyncio.wait_for(open_upstream(body, backup_route), settings.first_byte_timeout)
             except asyncio.TimeoutError:
                 return handled(guards.TIMEOUT_REPLY, f"no answer within {int(settings.first_byte_timeout)} s", "timeout")
             except httpx.HTTPError:
@@ -177,6 +203,8 @@ def build_app(settings: Settings, ledger: Ledger, client: httpx.AsyncClient | No
         model = upstream.headers.get("x-model-router-selected-model", "unknown")
         verdict_tier, reason, source = parse_evidence(upstream.headers.get("x-switchyard-route-evidence"))
         tier, shown_reason = describe(model, verdict_tier, reason, source)
+        if docs:
+            tier, shown_reason, source = "documents", docs_reason, "rule"
         passthrough = {k: v for k, v in upstream.headers.items()
                        if k.startswith("x-model-router") or k.startswith("x-switchyard")}
 
@@ -191,7 +219,7 @@ def build_app(settings: Settings, ledger: Ledger, client: httpx.AsyncClient | No
             data = json.loads(raw)
             usage = data.get("usage") or {}
             state.prompt_tokens, state.completion_tokens = usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0)
-            if settings.show_footer and data.get("choices"):
+            if settings.show_footer and data.get("choices") and not _calls_tools(data):
                 message = data["choices"][0].setdefault("message", {})
                 message["content"] = (message.get("content") or "") + footer_text(model, tier, shown_reason, state.elapsed_ms())
             finish()
@@ -223,6 +251,10 @@ def build_app(settings: Settings, ledger: Ledger, client: httpx.AsyncClient | No
                             if usage:
                                 state.prompt_tokens = usage.get("prompt_tokens", state.prompt_tokens)
                                 state.completion_tokens = usage.get("completion_tokens", state.completion_tokens)
+                            if not footer_sent and _calls_tools(data):
+                                # A tool-call turn ends in tool calls, not text; the footer goes on
+                                # the answer that follows the tool result.
+                                footer_sent = True
                             if not footer_sent and _finishes(data):
                                 footer_sent = True
                                 content_part, finish_part = _split_finish(data)
@@ -299,6 +331,10 @@ def _event_json(event: bytes) -> dict | None:
                 return None
             return value if isinstance(value, dict) else None
     return None
+
+
+def _calls_tools(data: dict) -> bool:
+    return any(choice.get("finish_reason") == "tool_calls" for choice in data.get("choices") or [])
 
 
 def _finishes(data: dict) -> bool:

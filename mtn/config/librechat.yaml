@@ -278,9 +278,13 @@ modelSpecs:
     - name: 'mtn-smart-chat'
       label: 'MTN Smart Chat'
       iconURL: '/assets/mtn/avatars/smart-chat.svg'
-      description: 'General chat. Each message goes to the fastest model that can answer it well (demo, synthetic data only).'
+      description: 'General chat. Each message goes to the fastest model that can answer it well, and Word, PowerPoint and Excel requests go to the documents tier (demo, synthetic data only).'
       group: 'MTN'
       order: 3
+      # MTN Office tools: router-lens passes them only to the documents tier (Office requests,
+      # tool follow-ups, revisions); every other turn reaches the text tiers without tools.
+      mcpServers:
+        - 'mtn-office'
       conversation_starters:
         - 'Hi there! Good morning.'
         - 'How should an employee report a lost company laptop, step by step?'

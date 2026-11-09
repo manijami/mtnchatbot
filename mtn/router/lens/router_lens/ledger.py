@@ -11,10 +11,10 @@ import time
 from collections import deque
 from dataclasses import asdict, dataclass
 
-TIERS = ("fast", "balanced", "capable", "vision")
+TIERS = ("fast", "balanced", "capable", "vision", "documents")
 # Vision turns have no text-tier alternative (the capable tier cannot read images), so they are
 # counted but left out of the cost index.
-COST_TIERS = ("fast", "balanced", "capable")
+COST_TIERS = ("fast", "balanced", "capable", "documents")
 LATENCY_BUCKETS = (1, 2, 5, 10, 20, 30, 45, 60, 90, 120)
 
 
