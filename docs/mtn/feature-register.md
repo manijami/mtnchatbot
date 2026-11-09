@@ -8,8 +8,13 @@ results use synthetic data only.
 - **What:** six MTN-curated skills (`mtn/skills/mtn-skills/`), mounted read-only as LibreChat
   deployment skills; listed per assistant with `modelSpecs[].skills`. Sharing off. Catalogue:
   `docs/mtn/skills-catalogue.md`.
-- **Assistants:** MTN Smart Chat, MTN Document Assistant (+ Groq fallback); future Workplace
-  Assistant.
+- **Assistants:** MTN Smart Chat, MTN Document Assistant (Groq default; Nemotron selectable);
+  future Workplace Assistant.
+- **Where each skill style runs:** the **MTN Document Assistant is file-first**: when a request
+  implies a document it builds the file directly and often skips the skill. **MTN Smart Chat is
+  where the chat-style skills run** (minutes, briefs, emails, status reports, summaries, privacy
+  checks), with a file offered or built on request.
+- **Skill creation:** MTN-curated only (`interface.skills.create: false`, 2026-11-09).
 - **Changes to make it work** (details in the CLAUDE.md decisions log, 2026-11-09):
   - five skill descriptions shortened to 180 characters or fewer (catalogue entries are cut at
     250 characters including the name);

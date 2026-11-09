@@ -97,11 +97,11 @@ interface:
   # No agents marketplace for now (MTN assistants are the model specs below).
   marketplace:
     use: false
-  # Skills: MTN-curated deployment skills (mtn/skills/mtn-skills, mounted read-only) for everyone;
-  # users may keep private skills of their own, but sharing and public skills stay off.
+  # Skills: MTN-curated deployment skills only (mtn/skills/mtn-skills, mounted read-only); users
+  # cannot create, share or publish skills for now (decision 2026-11-09).
   skills:
     use: true
-    create: true
+    create: false
     share: false
     public: false
   # Shared links off until MTN sets a sharing policy (decision 2026-11-08).
@@ -193,12 +193,11 @@ modelSpecs:
   prioritize: true
   list:
     - name: 'mtn-document-assistant'
-      label: 'MTN Document Assistant'
+      label: 'MTN Document Assistant (Nemotron)'
       iconURL: '/assets/mtn/avatars/document-assistant.svg'
-      description: 'Creates MTN-branded Word, PowerPoint and Excel files. NVIDIA Nemotron Ultra (dev only, synthetic data).'
-      default: true
+      description: 'Same assistant on NVIDIA Nemotron 3 Ultra (dev only, synthetic data). The hosted model was unavailable on 2026-11-09.'
       group: 'MTN'
-      order: 1
+      order: 2
       skills:
         - 'meeting-minutes'
         - 'executive-brief'
@@ -248,11 +247,12 @@ modelSpecs:
           - Do not use tools for questions that do not ask for a file.
           - Use synthetic or public information only in this development environment.
     - name: 'mtn-document-assistant-groq'
-      label: 'MTN Document Assistant (Groq fallback)'
+      label: 'MTN Document Assistant'
       iconURL: '/assets/mtn/avatars/document-assistant.svg'
-      description: 'Same assistant on Groq gpt-oss-120b, for when NVIDIA is unavailable (dev only, synthetic data).'
+      description: 'Creates MTN-branded Word, PowerPoint and Excel files. Groq gpt-oss-120b (dev only, synthetic data).'
+      default: true
       group: 'MTN'
-      order: 2
+      order: 1
       skills:
         - 'meeting-minutes'
         - 'executive-brief'

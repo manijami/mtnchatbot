@@ -399,6 +399,17 @@ Record every deviation from upstream here with rationale, so future upstream mer
   message starting with the SKILL.md front matter) so it is never taken as the user's request,
   sends skill steps to a fixed passthrough route (`mtn-smart-skill` → balanced), and falls back to
   the backup route when a primary gives no answer within 45 s. Results: `docs/mtn/feature-register.md`.
+- _2026-11-09_ — **Skills: MTN-curated only.** `interface.skills.create: false` (with share and
+  public already off): employees use the six MTN skills but cannot create, share or publish their
+  own for now.
+- _2026-11-09_ — **Demo reliability.** NVIDIA-hosted Nemotron 3 Ultra was **unavailable on
+  2026-11-09** (60 s timeouts on direct calls all day; NemoGuard topic control also returned 500s).
+  The **MTN Document Assistant default is now Groq `gpt-oss-120b`** (spec
+  `mtn-document-assistant-groq`, label "MTN Document Assistant"); the Nemotron spec stays
+  selectable as "MTN Document Assistant (Nemotron)" (spec names unchanged, so existing chats keep
+  working). router-lens first-response timeout lowered from 45 s to **15 s**
+  (`ROUTER_LENS_FIRST_BYTE_TIMEOUT`) before the backup route is tried; the 45 s mid-answer silence
+  limit is unchanged. The Groq key moves to the paid tier (user, 2026-11-09).
 - _2026-11-08, revised 2026-11-09_ — **CORE DEVIATION #2 — Office previews (shrunk).** Upstream
   already has an owner-checked `GET /api/files/:file_id/preview` (same `fileAccess` check as
   download) and builds sanitised HTML previews of .docx (mammoth), .xlsx/.csv (SheetJS, ≤ 5,000
