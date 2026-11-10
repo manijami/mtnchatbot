@@ -144,6 +144,10 @@ OFFICE_TOOL_PREFIXES = (
     "create_excel_workbook",
     "revise_office_file",
     "get_generation_status",
+    # Excel insights
+    "inspect_workbook",
+    "analyse_workbook",
+    "create_insights_files",
 )
 TOOL_RESULT_NOTE_CHARS = 400
 
@@ -212,6 +216,20 @@ def has_office_history(messages: list) -> bool:
 
 def revision_request(text: str) -> bool:
     return bool(_REVISION.search(text or ""))
+
+
+# Excel insights: a spreadsheet named or attached, or an analysis/dashboard request about one.
+_SPREADSHEET_FILE = re.compile(r"[\w\-. ()]+\.(?:xlsx|csv)\b", re.IGNORECASE)
+_INSIGHTS = re.compile(
+    r"\b(?:analy[sz]e|analysis|insights?|trends?|dashboard|infographic|charts?|summari[sz]e)\b"
+    r"(?:\W+\w+){0,8}?\W+(?:the\s+|this\s+|my\s+|an?\s+)?(?:spreadsheet|excel|workbook|csv|sheet|data)\b",
+    re.IGNORECASE,
+)
+
+
+def insights_request(text: str) -> bool:
+    """True when the person attaches or names a spreadsheet, or asks to analyse one."""
+    return bool(_SPREADSHEET_FILE.search(text or "") or _INSIGHTS.search(text or ""))
 
 
 # LibreChat's skill tools (load a skill, read a skill file) work on every tier.

@@ -38,6 +38,8 @@ services:
       OFFICE_MCP_RETENTION_DAYS: ${OFFICE_MCP_RETENTION_DAYS:-0}
       OFFICE_MCP_PREVIEW_IMAGE: ${OFFICE_MCP_PREVIEW_IMAGE:-false}
       OFFICE_MCP_UPLOADS_DIR: /uploads
+      # matplotlib needs a writable cache; the home folder is read-only.
+      MPLCONFIGDIR: /tmp/matplotlib
       # Excel insights limits (defaults shown; override in .env).
       INSIGHTS_MAX_FILE_BYTES: ${INSIGHTS_MAX_FILE_BYTES:-15728640}
       INSIGHTS_MAX_SHEETS: ${INSIGHTS_MAX_SHEETS:-10}

@@ -21,11 +21,14 @@ from ..files import InsightLimits, LocalUploadsSource, SourceFile
 from ..schemas import PresentationSpec, WorkbookSpec
 from . import Tool, ToolContext, ToolError, register
 
-FILE_HINT = "The exact name of a spreadsheet the user attached to this chat (.xlsx or .csv), e.g. 'sales.xlsx'."
+FILE_HINT = "The exact name of a spreadsheet the user attached to this chat (.xlsx or .csv), exactly as the upload list shows it; never guess a name."
 INSPECT_DESCRIPTION = (
     "Inspect a spreadsheet the user uploaded (.xlsx or .csv) BEFORE analysing it: sheets, columns with "
     "their types (number, date, text, true/false), row counts, and data quality (blanks, duplicate rows, "
-    "mixed types, unusual values). Read-only. Example: {\"file\": \"sales.xlsx\"}"
+    "mixed types, unusual values). Read-only. Attached spreadsheets are NOT shown to you in the chat: "
+    "when the user mentions one and you do not know its name, call this tool WITHOUT file to list their "
+    "recent uploads (newest first; the newest is usually the one just attached). "
+    "Examples: {} lists the uploads; then {\"file\": \"<name from that list>\"}"
 )
 ANALYSE_DESCRIPTION = (
     "Analyse a spreadsheet the user uploaded, with pandas. Returns tables of computed numbers: these are "
@@ -35,7 +38,7 @@ ANALYSE_DESCRIPTION = (
     "share_of_total (group_by, measure), period_change (date_column, measure, period, compare "
     "previous|year_ago), distribution (column, bins). measure may be omitted with agg 'count'. Optional "
     "filters: [{column, op eq|ne|in|gt|gte|lt|lte|between, value}]. Use column names exactly as "
-    "inspect_workbook reports them. Example: {\"file\": \"sales.xlsx\", \"sheet\": \"Sales\", \"analyses\": "
+    "inspect_workbook reports them. Example: {\"file\": \"<name from the upload list>\", \"sheet\": \"Sales\", \"analyses\": "
     "[{\"type\": \"group_summary\", \"group_by\": \"Region\", \"measure\": \"Revenue\", \"agg\": \"sum\"}, "
     "{\"type\": \"time_trend\", \"date_column\": \"Month\", \"measure\": \"Revenue\", \"period\": \"month\"}]}"
 )
@@ -87,6 +90,12 @@ def _text(header: str, body: dict) -> list:
 
 
 async def inspect_workbook(ctx: ToolContext, arguments: dict) -> list:
+    if not str((arguments or {}).get("file") or "").strip():
+        uploads = _source(ctx).list_for(ctx.identity.user_id)
+        if not uploads:
+            raise ToolError("No spreadsheet uploads were found for you. Ask the user to attach the .xlsx or .csv file with the paperclip.")
+        return _text("The user's recent spreadsheet uploads, newest first. Inspect one by calling this tool with its file name.",
+                     {"uploads": uploads})
     src = _source(ctx).open_for(ctx.identity.user_id, str(arguments.get("file", "")))
     limits = ctx.settings.insight_limits
     result = await _in_child(_inspect_worker, src, limits, timeout_s=limits.timeout_s)
@@ -113,7 +122,8 @@ register(Tool(
     definition=types.Tool(
         name="inspect_workbook",
         description=INSPECT_DESCRIPTION,
-        inputSchema={"type": "object", "properties": {"file": _FILE_SCHEMA}, "required": ["file"]},
+        # file may be omitted or null: that lists the caller's recent uploads.
+        inputSchema={"type": "object", "properties": {"file": {"type": ["string", "null"], "description": FILE_HINT + " Omit (or null) to list the user's recent uploads."}}},
     ),
     run=inspect_workbook,
 ))

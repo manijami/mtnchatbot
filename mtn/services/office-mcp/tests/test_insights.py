@@ -353,3 +353,12 @@ def _sleepy_worker(src, limits):
 
     time.sleep(10)
     return {}
+
+
+def test_inspect_without_a_file_lists_the_callers_uploads(uploads, tmp_path):
+    root, _ = uploads
+    out = asyncio.run(inspect_workbook(ctx(root, tmp_path), {"file": None}))
+    listed = json.loads(out[0].text.split("\n", 1)[1])["uploads"]
+    assert {f["file"] for f in listed} == {"sales.xlsx", "incidents.csv", "budget.xlsx"}
+    with pytest.raises(ToolError, match="No spreadsheet uploads"):
+        asyncio.run(inspect_workbook(ctx(root, tmp_path, user=BOB), {}))

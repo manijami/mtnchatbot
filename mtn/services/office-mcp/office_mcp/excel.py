@@ -162,6 +162,16 @@ def _make_chart(kind: str, title: str | None):
     return chart
 
 
+def _logo_column(ws, n_columns: int, title: str) -> int:
+    """First column right of the data columns and of the title text (which runs over empty cells)."""
+    column, width = 1, 0.0
+    title_width = len(title) * 1.6  # the title font is about 1.6x a default column character
+    while column <= max(n_columns, 1) or width < title_width:
+        width += ws.column_dimensions[get_column_letter(column)].width or 8.43
+        column += 1
+    return column
+
+
 def _sheet(workbook, sheet_spec: SheetSpec, title: str, logo: bytes | None, first: bool) -> dict:
     ws = workbook.active if first else workbook.create_sheet()
     ws.title = sheet_spec.name
@@ -312,7 +322,7 @@ def _sheet(workbook, sheet_spec: SheetSpec, title: str, logo: bytes | None, firs
 
         image = Image(io.BytesIO(logo))
         image.width = image.height = 40
-        ws.add_image(image, f"{get_column_letter(max(len(columns), 2))}1")
+        ws.add_image(image, f"{get_column_letter(_logo_column(ws, len(columns), title))}1")
 
     if sheet_spec.freeze_header:
         ws.freeze_panes = f"A{FIRST_DATA_ROW}"

@@ -139,3 +139,16 @@ def test_text_that_looks_like_a_formula_stays_text(client):
     ws = _workbook(result)[sheet["name"]]
     cell = ws.cell(5, first_text + 1)
     assert cell.value == '=HYPERLINK("https://example.com","click")' and cell.data_type == "s"
+
+
+def test_logo_sits_right_of_the_data_columns_and_the_title():
+    from openpyxl import Workbook
+
+    from office_mcp.excel import _logo_column
+
+    ws = Workbook().active
+    ws.column_dimensions["A"].width = ws.column_dimensions["B"].width = 14
+    # Two narrow columns and a long title: the logo must clear the title text, not sit on column B.
+    assert _logo_column(ws, 2, "MTN Sales Insights 2025-2026") >= 5
+    # Wide data: the logo goes just after the last data column.
+    assert _logo_column(ws, 9, "Short") == 10

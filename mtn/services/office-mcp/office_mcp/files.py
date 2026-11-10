@@ -18,6 +18,7 @@ from __future__ import annotations
 import os
 import re
 import zipfile
+from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -55,6 +56,8 @@ class SourceFile:
 
 class FileSource(Protocol):
     def open_for(self, owner_id: str, filename: str) -> SourceFile: ...
+
+    def list_for(self, owner_id: str, limit: int = 5) -> list[dict]: ...
 
 
 def clean_filename(filename: str) -> str:
@@ -136,6 +139,36 @@ class LocalUploadsSource:
             raise self._not_found(name)
         newest = max(matches)[1]  # the most recent upload with that name
         return check_type_and_size(name, newest, self.limits)
+
+    def list_for(self, owner_id: str, limit: int = 5) -> list[dict]:
+        """The caller's own spreadsheet uploads, newest first (name, size, upload time)."""
+        if not _USER_ID.match(owner_id or ""):
+            raise ToolError("The signed-in user could not be identified.")
+        owner_dir = (self.root / owner_id).resolve()
+        if owner_dir.parent != self.root or not owner_dir.is_dir():
+            return []
+        found = []
+        with os.scandir(owner_dir) as entries:
+            for entry in entries:
+                stored = _STORED_NAME.match(entry.name)
+                if not stored or not entry.is_file(follow_symlinks=False):
+                    continue
+                name = stored.group("name")
+                if Path(name).suffix.lower() not in ALLOWED_SUFFIXES:
+                    continue
+                info = entry.stat(follow_symlinks=False)
+                found.append((info.st_mtime, name, info.st_size))
+        found.sort(reverse=True)
+        seen, result = set(), []
+        for mtime, name, size in found:
+            if name in seen:
+                continue  # the newest upload of a name is the one a lookup uses
+            seen.add(name)
+            result.append({"file": name, "size_kb": max(1, round(size / 1024)),
+                           "uploaded": datetime.fromtimestamp(mtime).isoformat(timespec="minutes")})
+            if len(result) == limit:
+                break
+        return result
 
     @staticmethod
     def _not_found(name: str) -> ToolError:

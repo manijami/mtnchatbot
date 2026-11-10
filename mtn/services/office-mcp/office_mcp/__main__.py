@@ -5,8 +5,8 @@ import sys
 
 import uvicorn
 
-from .app import build_app
-from .config import ConfigError, load_settings
+from office_mcp.app import build_app
+from office_mcp.config import ConfigError, load_settings
 
 
 def main() -> int:

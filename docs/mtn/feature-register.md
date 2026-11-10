@@ -67,3 +67,47 @@ non-trigger prompts 6 of 6 left skills alone (no false triggers).
 - Groq free tier: large requests (skill catalogue + tools + instructions) can hit the rate limit.
 - When NVIDIA-hosted Nemotron does not answer, documents and capable-tier turns take about 45 s
   longer (timeout, then the Groq backup).
+
+## Excel insights (E1–E4, 2026-11-10)
+
+Upload a spreadsheet, get a summary whose numbers come only from office-mcp (`inspect_workbook`,
+`analyse_workbook`), then files from the saved run (`create_insights_files`). Skill:
+`excel-insights` (Smart Chat, Document Assistant, Groq fallback). `.xlsx`/`.csv` uploads use the
+`none` delivery path, so rows never reach the model; the model lists uploads with
+`inspect_workbook` and no file name. Synthetic workbook: 18 months, 5 regions, 4 products,
+362 rows (3 blank Revenue, 2 duplicates, one R950k outlier in January 2025).
+
+### Browser run 2026-11-10 (MTN Document Assistant (Nemotron), synthetic data)
+
+| ID | Prompt | Result |
+|---|---|---|
+| XI-1 | "Please analyse the attached sales workbook (synthetic data) and give me the key insights." | Pass with issues: skill loaded, first `inspect_workbook` guessed `sales.xlsx` (from the tool example; fixed), then listed uploads, inspected and ran 6 analyses. Region, product, month and outlier figures match the run. **Model-derived numbers** in chat: "nearly 1.5×", LTE Home "33.5 %", 2026 vs 2025 averages; "2 duplicate rows excluded" was false (duplicates are reported, never removed). Skill rules tightened |
+| XI-2 | "Create the infographic, PowerPoint, Excel workbook, chart images and HTML dashboard … also an in-chat dashboard." | Files pass: 10 files (5 chart PNGs, infographic PNG + PDF, HTML dashboard, 9-slide deck with native charts, 6-sheet workbook with native charts). The number check refused 4 drafts before the insights used only result numbers. In-chat dashboard: **markdown table, not an artifact** |
+| XI-3 | New chat, analyse + "show them as an in-chat dashboard" (after the skill fix) | No ratios this time; duplicates reported as notes. No artifact: the model made the HTML file again. Asking explicitly for an artifact made it loop on `read_file`/regenerating the file (stopped) |
+| XI-4 | Same in MTN Smart Chat (documents tier) | Summary as a markdown table; called the static HTML file "interactive". No artifact |
+
+### Fixes from this run
+
+- office-mcp worker crash (`BrokenWorkerProcess`, relative import in `__main__.py` when anyio's
+  worker re-runs it by path): absolute imports + a regression test.
+- Number check: category labels with digits ("Fibre 100", bin labels) are no longer read as
+  quoted numbers (they blocked Smart Chat's files).
+- Tool descriptions no longer give `sales.xlsx` as an example name; the example lists uploads first.
+- Chart axes show 500k / 1.5m instead of a "1e6" offset.
+- Workbook logo placed right of the data columns and the title (it covered the title on narrow
+  sheets).
+- Skill: no derived ratios/shares/averages (add an analysis instead); only `rows_left_out` counts as
+  excluded; the in-chat dashboard must be an artifact; the HTML file is static.
+
+### Known issues (Excel insights)
+
+- **In-chat artifact dashboard not produced** by Nemotron 3 Ultra in either assistant, even when
+  asked explicitly (the artifacts prompt is attached). The HTML dashboard file is the dashboard
+  for now. Retest with Groq `gpt-oss-120b` once the paid tier is active.
+- Words are not checked: the number check cannot stop wrong claims in prose (for example
+  "1 outlier was excluded" reached the infographic and dashboard). Chat text is not checked at all.
+- Deck charts show at most 12 categories (the monthly chart drops the January 2025 spike); deck
+  bar charts list the largest bar at the bottom.
+- Skill catalogue entries reached the model cut to 158 chars in one run (limit appears to shrink
+  as the prompt grows); the descriptions still start with the trigger words.
+- Nemotron once spent about 3 minutes reasoning with no output (stopped and regenerated).

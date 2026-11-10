@@ -145,6 +145,8 @@ def build_app(settings: Settings, ledger: Ledger, client: httpx.AsyncClient | No
                 docs_reason = "Office tool follow-up"
             elif office_kind:
                 docs_reason = f"{office_kind} request"
+            elif guards.insights_request(text):
+                docs_reason = "spreadsheet analysis"
             elif guards.has_office_history(messages) and guards.revision_request(text):
                 docs_reason = "revision of an Office file"
         docs = docs_reason is not None

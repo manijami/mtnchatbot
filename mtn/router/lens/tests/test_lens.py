@@ -628,3 +628,26 @@ def test_skill_messages_are_recognised_by_their_front_matter():
     assert not guards.is_skill_message({"role": "assistant", "content": SKILL_BODY_MSG["content"]})
     msgs = [{"role": "user", "content": "make it a Word document"}, SKILL_BODY_MSG]
     assert guards.real_user_text(msgs) == "make it a Word document"
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("Attached file(s): sales_2026.xlsx\nWhat are the trends?", True),
+    ("Can you analyse this spreadsheet for me?", True),
+    ("Build a dashboard from my Excel workbook", True),
+    ("Give me insights from the data in team list.csv", True),
+    ("What is a spreadsheet?", False),
+    ("Summarise this policy for me", False),
+])
+def test_spreadsheet_analysis_requests(text, expected):
+    assert guards.insights_request(text) is expected
+
+
+def test_spreadsheet_analysis_goes_to_the_documents_tier(fake):
+    fake.set("mtn-smart-docs", headers={"x-model-router-selected-model": DOCS_MODEL},
+             body=sse(tool_call_chunk(), tool_finish_chunk()))
+    client, ledger = make_docs(fake)
+    tools = OFFICE_TOOLS + [{"type": "function", "function": {"name": "analyse_workbook_mcp_mtn-office", "parameters": {"type": "object"}}}]
+    client.post("/v1/chat/completions", json={"model": "mtn-smart", "stream": True, "tools": tools, "messages": [
+        {"role": "user", "content": "Attached file(s): sales.xlsx\nWhat are the main trends?"}]})
+    assert fake.requests[0]["model"] == "mtn-smart-docs"
+    assert ledger.recent[0].reason == "spreadsheet analysis"

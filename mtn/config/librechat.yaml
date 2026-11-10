@@ -172,16 +172,28 @@ fileConfig:
       defaultLLMDeliveryPath:
         overrides:
           'application/pdf': 'text'
+          # Spreadsheets: stored and reachable by the MTN Office tools only; rows never reach the
+          # model (Excel insights quotes computed results instead).
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'none'
+          'text/csv': 'none'
     # NVIDIA's chat API also rejects native PDF parts (400 "did not match any variant").
     nvidia:
       defaultLLMDeliveryPath:
         overrides:
           'application/pdf': 'text'
+          # Spreadsheets: stored and reachable by the MTN Office tools only; rows never reach the
+          # model (Excel insights quotes computed results instead).
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'none'
+          'text/csv': 'none'
     # Every model behind the router is one of the above.
     'MTN Smart Router':
       defaultLLMDeliveryPath:
         overrides:
           'application/pdf': 'text'
+          # Spreadsheets: stored and reachable by the MTN Office tools only; rows never reach the
+          # model (Excel insights quotes computed results instead).
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'none'
+          'text/csv': 'none'
 
 # Phase 4 — MTN Document Assistant. Defined as model specs (config, no database seed): the agents
 # REST API rejects non-browser clients (uaParser), so a scripted REST seed is not possible without
@@ -205,6 +217,10 @@ modelSpecs:
         - 'project-status-report'
         - 'document-summariser'
         - 'popia-privacy-check'
+        - 'excel-insights'
+      # In-chat dashboards (Excel insights). The renderer loads a bundler from the internet in the
+      # browser, which MTN's network may block; the HTML dashboard file is the authoritative copy.
+      artifacts: 'default'
       mcpServers:
         - 'mtn-office'
       fileSearch: true
@@ -225,6 +241,10 @@ modelSpecs:
             sensible audience, purpose and structure, and state your assumptions in one short sentence
             afterwards. Ask one brief question only when you cannot tell what kind of file or what topic
             the user wants.
+          - Spreadsheets the user attaches are not shown to you. When the user mentions one (to analyse,
+            summarise or chart it), use the excel-insights skill; find the file with the tool
+            `inspect_workbook_mcp_mtn-office` (no file name lists their recent uploads) instead of asking
+            them to upload it again.
           - When an MTN skill matches the request (for example meeting minutes or a project status
             report), load it with the `skill` tool first and follow its structure. If the user asked for a
             file, still create the file.
@@ -260,6 +280,10 @@ modelSpecs:
         - 'project-status-report'
         - 'document-summariser'
         - 'popia-privacy-check'
+        - 'excel-insights'
+      # In-chat dashboards (Excel insights). The renderer loads a bundler from the internet in the
+      # browser, which MTN's network may block; the HTML dashboard file is the authoritative copy.
+      artifacts: 'default'
       mcpServers:
         - 'mtn-office'
       fileSearch: true
@@ -280,6 +304,10 @@ modelSpecs:
             sensible audience, purpose and structure, and state your assumptions in one short sentence
             afterwards. Ask one brief question only when you cannot tell what kind of file or what topic
             the user wants.
+          - Spreadsheets the user attaches are not shown to you. When the user mentions one (to analyse,
+            summarise or chart it), use the excel-insights skill; find the file with the tool
+            `inspect_workbook_mcp_mtn-office` (no file name lists their recent uploads) instead of asking
+            them to upload it again.
           - When an MTN skill matches the request (for example meeting minutes or a project status
             report), load it with the `skill` tool first and follow its structure. If the user asked for a
             file, still create the file.
@@ -317,6 +345,10 @@ modelSpecs:
         - 'project-status-report'
         - 'document-summariser'
         - 'popia-privacy-check'
+        - 'excel-insights'
+      # In-chat dashboards (Excel insights). The renderer loads a bundler from the internet in the
+      # browser, which MTN's network may block; the HTML dashboard file is the authoritative copy.
+      artifacts: 'default'
       mcpServers:
         - 'mtn-office'
       conversation_starters:
@@ -333,7 +365,9 @@ modelSpecs:
           they help. Do not invent contact details, prices or currencies that the user did not give.
           MTN skills cover common work tasks (meeting minutes, executive briefs, emails, project
           status reports, document summaries, POPIA privacy checks). When a request matches one,
-          load it with the `skill` tool first and follow it.
+          load it with the `skill` tool first and follow it. Attached spreadsheets are not shown to
+          you: when the user mentions one, use the excel-insights skill and find the file with the
+          tool `inspect_workbook_mcp_mtn-office` (no file name lists their recent uploads).
           Use synthetic or public information only in this development environment.
 
 # Phase 4 — Office document generation (mtn/services/office-mcp, mtn/deploy/compose.office.yml).
@@ -365,8 +399,14 @@ mcpServers:
         - 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         - 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
         - 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        # Excel insights: infographic PDF, chart/infographic PNGs, static HTML dashboard
+        # (HTML only when it has no script, handlers, frames or forms; downloads are attachments).
+        - 'application/pdf'
+        - 'image/png'
+        - 'text/html'
       maxBytes: 20971520
-      maxFiles: 2
+      # charts (up to 6) + infographic PNG + PDF + dashboard + deck + workbook
+      maxFiles: 12
 
 mcpSettings:
   # Exempt only office-mcp:8000 from the private-address SSRF block; no allowedDomains list,

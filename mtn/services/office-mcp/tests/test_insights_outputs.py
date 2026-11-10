@@ -126,6 +126,8 @@ RUN = {"file": "x.xlsx", "run_id": "run_abc", "results": [
      "table": {"columns": ["Region", "Total", "Share of total (%)"], "rows": [["Gauteng", 1234567.89, 92.6], ["Limpopo", 98765.4, 7.4]]}},
     {"id": "A3", "type": "time_trend", "title": "By month", "sheet": "S", "columns_used": ["Month"], "rows_used": 12,
      "table": {"columns": ["Month", "Total"], "rows": [["2026-01", 100.0], ["2026-02", 120.5]]}},
+    {"id": "A4", "type": "group_summary", "title": "By product", "sheet": "S", "columns_used": ["Product"], "rows_used": 359,
+     "table": {"columns": ["Product", "Total"], "rows": [["Fibre 100", 2034485.58], ["Fibre 50", 2541333.32]]}},
 ]}
 
 
@@ -135,6 +137,7 @@ RUN = {"file": "x.xlsx", "run_id": "run_abc", "results": [
     "Revenue in 2026-02 was 120.5, up from 100 in 2026-01.",
     "The top 3 regions; 359 rows used and 3 left out for blanks.",
     "Gauteng: 1,234,568 (rounded).",
+    "Fibre 50 (R2.54 M) sold more than Fibre 100 (R2.03 M).",
 ])
 def test_number_check_accepts_numbers_from_the_results(text):
     check_numbers([text], RUN)
@@ -143,7 +146,8 @@ def test_number_check_accepts_numbers_from_the_results(text):
 @pytest.mark.parametrize("text,bad", [
     ("Gauteng led with 1,300,000 in revenue.", "1,300,000"),
     ("Revenue grew 15% month on month.", "15%"),
-    ("Limpopo had 2.5m in revenue.", "2.5m"),
+    ("Limpopo had 3.7m in revenue.", "3.7m"),
+    ("Fibre 100 sold 250 units.", "250"),
 ])
 def test_number_check_refuses_invented_numbers(text, bad):
     with pytest.raises(ToolError, match=re.escape(bad)):
@@ -155,3 +159,9 @@ def test_dashboard_escapes_labels_from_the_data():
     run["results"][0]["table"]["rows"][0][0] = "<script>alert(1)</script>"
     page = dashboard_html(run, "T <b>", ["Insight with <img src=x onerror=alert(1)>"], {}).decode()
     assert "<script>alert" not in page and "&lt;script&gt;" in page and not ACTIVE_HTML.search(page)
+
+
+@pytest.mark.parametrize("value,text", [(0, "0"), (500_000, "500k"), (1_500_000, "1.5m"), (2_000_000_000, "2bn"), (0.5, "0.5")])
+def test_chart_axes_use_short_numbers_not_scientific_notation(value, text):
+    from office_mcp.insights_outputs import _tick
+    assert _tick(value) == text

@@ -113,3 +113,13 @@ def test_renamed_non_workbook_and_password_protected_files(uploads):
 
 def test_clean_filename_strips_quotes():
     assert clean_filename(' "sales.xlsx" ') == "sales.xlsx"
+
+
+def test_lists_only_the_owners_spreadsheets_newest_first(uploads):
+    os.utime(uploads / ALICE / "1111aaaa-0000-4000-8000-000000000001__sales.xlsx", (1_000_000, 1_000_000))
+    (uploads / ALICE / "9999ffff-0000-4000-8000-00000000000f__notes.docx").write_bytes(b"PK")
+    listed = source(uploads).list_for(ALICE)
+    assert [f["file"] for f in listed] == ["team.csv", "sales.xlsx"]
+    assert source(uploads).list_for(BOB)[0]["file"] == "secret.xlsx"
+    with pytest.raises(ToolError):
+        source(uploads).list_for("../" + BOB)

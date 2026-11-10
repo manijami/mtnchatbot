@@ -18,6 +18,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.patches  # noqa: E402
+import matplotlib.ticker  # noqa: E402
 from matplotlib.figure import Figure  # noqa: E402
 
 from .errors import ToolError  # noqa: E402
@@ -59,9 +60,13 @@ def _run_values(run: dict) -> tuple[list[float], set[str]]:
 def check_numbers(texts: list[str], run: dict) -> None:
     """Every number in the insight texts must match a computed value (at the precision written)."""
     values, labels = _run_values(run)
+    # Category names with digits ("Fibre 100", a distribution bin) are labels, not quoted numbers.
+    named = sorted((label for label in labels if any(ch.isdigit() for ch in label)), key=len, reverse=True)
+    label_pattern = re.compile("|".join(rf"(?<!\w){re.escape(label)}(?!\w)" for label in named), re.IGNORECASE) if named else None
     problems = []
     for text in texts:
-        scrubbed = _DATEISH.sub(" ", text)
+        scrubbed = label_pattern.sub(" ", text) if label_pattern else text
+        scrubbed = _DATEISH.sub(" ", scrubbed)
         for match in _NUMBER.finditer(scrubbed):
             raw = match.group("num")
             number = float(raw.replace(",", "").replace(" ", ""))
@@ -104,8 +109,20 @@ def _style(ax, title: str):
     ax.spines["left"].set_color(LIGHT)
     ax.spines["bottom"].set_color(LIGHT)
     ax.tick_params(colors=GREY, labelsize=9)
+    for axis in (ax.xaxis, ax.yaxis):
+        # Value axes read 500k / 1.5m, not "1e6"; category axes keep their labels.
+        if isinstance(axis.get_major_formatter(), matplotlib.ticker.ScalarFormatter):
+            axis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _pos: _tick(v)))
     for label in ax.get_xticklabels() + ax.get_yticklabels():
         label.set_fontfamily(FONT)
+
+
+def _tick(value: float) -> str:
+    """Axis tick text: 0, 500k, 1.5m (no scientific offset)."""
+    for scale, unit in ((1e9, "bn"), (1e6, "m"), (1e3, "k")):
+        if abs(value) >= scale:
+            return f"{value / scale:g}{unit}"
+    return f"{value:g}"
 
 
 def _fmt(value) -> str:
