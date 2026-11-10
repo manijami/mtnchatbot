@@ -73,14 +73,14 @@ describe('resolveMCPFileOutputPolicy', () => {
   it('drops types it cannot verify and caps maxBytes', () => {
     const yaml = {
       ...enabledYaml,
-      fileOutputs: { enabled: true, mimeTypes: ['text/html', XLSX], maxBytes: 1024 },
+      fileOutputs: { enabled: true, mimeTypes: ['text/plain', XLSX], maxBytes: 1024 },
     };
     const policy = resolveMCPFileOutputPolicy({ ...yaml, source: 'yaml' }, yaml)!;
     expect([...policy.mimeTypes]).toEqual([XLSX]);
     expect(policy.maxBytes).toBe(1024);
     const unverifiable = {
       ...enabledYaml,
-      fileOutputs: { enabled: true, mimeTypes: ['text/html'] },
+      fileOutputs: { enabled: true, mimeTypes: ['text/plain'] },
     };
     expect(
       resolveMCPFileOutputPolicy({ ...unverifiable, source: 'yaml' }, unverifiable),
@@ -173,6 +173,43 @@ describe('helpers', () => {
     expect(hasExpectedSignature(Buffer.from('PK\x03\x04 but no manifest'), DOCX)).toBe(false);
     expect(hasExpectedSignature(ooxmlBytes(), DOCX)).toBe(true);
     expect(hasExpectedSignature(ooxmlBytes(), 'text/plain')).toBe(false);
+  });
+
+  it('checks PNG signatures (MTN: chart images)', () => {
+    const png = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(16),
+    ]);
+    expect(hasExpectedSignature(png, 'image/png')).toBe(true);
+    expect(hasExpectedSignature(Buffer.from('GIF89a......'), 'image/png')).toBe(false);
+  });
+
+  it('accepts only static HTML documents (MTN: dashboards)', () => {
+    const html = (body: string) => Buffer.from(`<!DOCTYPE html><html><body>${body}</body></html>`);
+    expect(hasExpectedSignature(html('<h1>Dashboard</h1><svg><rect/></svg>'), 'text/html')).toBe(
+      true,
+    );
+    expect(hasExpectedSignature(Buffer.from('\uFEFF<!doctype html><p>ok</p>'), 'text/html')).toBe(
+      true,
+    );
+    for (const active of [
+      '<script>alert(1)</script>',
+      '<img src=x onerror=alert(1)>',
+      '<a href="javascript:alert(1)">x</a>',
+      '<iframe src="https://example.com"></iframe>',
+      '<form action="/x"></form>',
+      '<object data="x"></object>',
+      '<meta http-equiv="refresh" content="0;url=https://example.com">',
+    ]) {
+      expect(hasExpectedSignature(html(active), 'text/html')).toBe(false);
+    }
+    expect(hasExpectedSignature(Buffer.from('<p>no doctype</p>'), 'text/html')).toBe(false);
+  });
+
+  it('keeps PNG and HTML out of the default allowlist (opt-in per server)', () => {
+    const policy = resolveMCPFileOutputPolicy({ ...enabledYaml, source: 'yaml' }, enabledYaml);
+    expect(policy?.mimeTypes.has('image/png')).toBe(false);
+    expect(policy?.mimeTypes.has('text/html')).toBe(false);
   });
 
   it('derives a safe filename with the type extension', () => {

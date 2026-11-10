@@ -189,6 +189,10 @@ def _sheet(workbook, sheet_spec: SheetSpec, title: str, logo: bytes | None, firs
             else:
                 where = f"sheets['{sheet_spec.name}'].rows[{r}][{c - 1}] ({column.name})"
                 cell.value = _coerce(value, column.type, where)
+                if isinstance(cell.value, str) and cell.value.startswith("="):
+                    # Text that looks like a formula stays text: openpyxl would otherwise store it as
+                    # a live formula (formula injection from user data, e.g. "=HYPERLINK(...)").
+                    cell.data_type = "s"
             if column.type in NUMBER_FORMATS:
                 cell.number_format = NUMBER_FORMATS[column.type]
                 cell.alignment = Alignment(vertical="top", horizontal="right")
@@ -363,7 +367,7 @@ def recalc_report(original: Path, recalculated: Path) -> dict:
         computed = values[ws.title]
         for row in ws.iter_rows():
             for cell in row:
-                is_formula = isinstance(cell.value, str) and cell.value.startswith("=")
+                is_formula = cell.data_type == "f"
                 value = computed[cell.coordinate].value
                 if is_formula:
                     report["formulas"] += 1
@@ -395,5 +399,5 @@ def formula_count(path: Path) -> int:
         for ws in workbook.worksheets
         for row in ws.iter_rows()
         for cell in row
-        if isinstance(cell.value, str) and cell.value.startswith("=")
+        if cell.data_type == "f"
     )

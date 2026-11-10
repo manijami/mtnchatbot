@@ -33,17 +33,36 @@ const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.doc
 const PPTX = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const PDF = 'application/pdf';
+const PNG = 'image/png';
+const HTML = 'text/html';
 
 /**
  * Types this feature can verify by signature, with the extension a saved file must carry.
  * A configured type outside this table is ignored: an unverifiable type is never saved.
  */
-const SUPPORTED_TYPES: Readonly<Record<string, { ext: string; signature: 'zip' | 'pdf' }>> = {
+const SUPPORTED_TYPES: Readonly<
+  Record<string, { ext: string; signature: 'zip' | 'pdf' | 'png' | 'html' }>
+> = {
   [DOCX]: { ext: '.docx', signature: 'zip' },
   [PPTX]: { ext: '.pptx', signature: 'zip' },
   [XLSX]: { ext: '.xlsx', signature: 'zip' },
   [PDF]: { ext: '.pdf', signature: 'pdf' },
+  /* MTN: chart images and dashboards (Excel insights). Opt-in per server via `mimeTypes`; not
+   * in the default list. Downloads are served as `attachment` with `nosniff`. */
+  [PNG]: { ext: '.png', signature: 'png' },
+  [HTML]: { ext: '.html', signature: 'html' },
 };
+
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+/** Anything that can run code or submit data; only static HTML is accepted. */
+const ACTIVE_HTML =
+  /<\s*(script|iframe|object|embed|form|meta\s+[^>]*http-equiv)|\son[a-z]+\s*=|javascript:|vbscript:/i;
+
+/** True for a static HTML document: a doctype first, and no script, frames, forms or handlers. */
+function isStaticHtml(bytes: Buffer): boolean {
+  const text = bytes.toString('utf8').replace(/^\uFEFF/, '');
+  return /^\s*<!doctype html>/i.test(text) && !ACTIVE_HTML.test(text);
+}
 
 export const DEFAULT_MCP_FILE_OUTPUT_MIME_TYPES: readonly string[] = [DOCX, PPTX, XLSX, PDF];
 
@@ -133,6 +152,12 @@ export function hasExpectedSignature(bytes: Buffer, mimeType: string): boolean {
   const kind = SUPPORTED_TYPES[mimeType]?.signature;
   if (kind === 'pdf') {
     return bytes.subarray(0, 5).toString('latin1') === '%PDF-';
+  }
+  if (kind === 'png') {
+    return bytes.length > PNG_SIGNATURE.length && bytes.subarray(0, 8).equals(PNG_SIGNATURE);
+  }
+  if (kind === 'html') {
+    return isStaticHtml(bytes);
   }
   if (kind === 'zip') {
     /* OOXML is a ZIP package whose first entry is conventionally [Content_Types].xml. */

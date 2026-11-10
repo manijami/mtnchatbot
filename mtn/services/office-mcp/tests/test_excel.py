@@ -127,3 +127,15 @@ def test_a_text_cell_that_looks_like_an_error_does_not_fail_the_workbook(client,
     result = call(client, "create_excel_workbook", spec)
     assert result["isError"] is False, result
     assert _version(store, result).checks["recalc"]["engine"] == "LibreOffice (cell scan)"
+
+
+def test_text_that_looks_like_a_formula_stays_text(client):
+    spec = tracker_spec()
+    sheet = spec["sheets"][0]
+    first_text = next(i for i, c in enumerate(sheet["columns"]) if c.get("type", "text") == "text" and not c.get("formula"))
+    sheet["rows"][0][first_text] = '=HYPERLINK("https://example.com","click")'
+    result = call(client, "create_excel_workbook", spec)
+    assert result["isError"] is False, result
+    ws = _workbook(result)[sheet["name"]]
+    cell = ws.cell(5, first_text + 1)
+    assert cell.value == '=HYPERLINK("https://example.com","click")' and cell.data_type == "s"

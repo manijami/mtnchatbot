@@ -438,6 +438,15 @@ Record every deviation from upstream here with rationale, so future upstream mer
   storage works; it implements the same `FileSource`. Raw rows stay off the model: spreadsheet
   uploads use LibreChat's `defaultLLMDeliveryPath` `none` ("stored and reachable by tools",
   config only); "Upload as Text" would still send rows, so the skill steers users away from it.
+- _2026-11-10_ — **Deviation #1 extended (MCP file outputs) for Excel insights.** Two more
+  signature-checked types in `packages/api/src/mcp/fileOutputs.ts`, opt-in per server (not in the
+  default list): `image/png` (PNG header) and `text/html` (must start with `<!DOCTYPE html>`;
+  refused if it contains script, event handlers, `javascript:`/`vbscript:`, iframe, object, embed,
+  form or meta refresh). Downloads stay `attachment` + `octet-stream` + `nosniff`, so HTML never
+  renders in the app origin. `mtn-office` allows PDF/PNG/HTML and up to 12 files per call.
+  **Related fix (office-mcp Excel builder):** text that starts with `=` is now stored as text, not
+  a live formula (formula injection from data or model text, e.g. `=HYPERLINK(...)`); covers
+  `create_excel_workbook` too.
 - _2026-11-08_ — **Stage A composer accents in `mtn-overrides.css`.** The yellow composer border
   and yellow send button have no dedicated theme token (the tokens they use are shared with many
   components), so they are scoped to upstream's `data-testid="composer-surface"` and
