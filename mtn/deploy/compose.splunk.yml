@@ -1,0 +1,68 @@
+# Use with compose.splunk-demo.yml; all paths resolve against the repository root.
+services:
+  api:
+    networks:
+      - splunk
+    environment:
+      NODE_EXTRA_CA_CERTS: /run/splunk-ca/ca.pem
+    volumes:
+      - ./mtn/splunk/private/tls/ca.pem:/run/splunk-ca/ca.pem:ro
+
+  splunk:
+    image: splunk/splunk:10.4.5@sha256:bb4607d1bea70bec6d7f6ef0ff66f8e74180f1d2d7e3a1573909bd09660a0f59
+    platform: linux/amd64
+    hostname: splunk
+    restart: "no"
+    environment:
+      # Deliberately no acceptance defaults. Only the operator may set these.
+      SPLUNK_START_ARGS: ${SPLUNK_START_ARGS:?operator must review and accept licence terms}
+      SPLUNK_GENERAL_TERMS: ${SPLUNK_GENERAL_TERMS:?operator must review and accept general terms}
+      SPLUNK_PASSWORD: ${SPLUNK_PASSWORD:?operator must supply a new local admin password}
+      SPLUNK_APPS_URL: /run/splunk-app/splunk-mcp-server.tgz,/run/splunk-app/mtn-demo.tgz
+    ports:
+      - "127.0.0.1:8001:8000"
+    volumes:
+      - splunk-etc:/opt/splunk/etc
+      - splunk-var:/opt/splunk/var
+      - ./mtn/splunk/private/splunk-mcp-configured.tgz:/run/splunk-app/splunk-mcp-server.tgz:ro
+      - ./mtn/splunk/private/tls/server.pem:/run/splunk-tls/server.pem:ro
+      - ./mtn/splunk/private/tls/ca.pem:/run/splunk-tls/ca.pem:ro
+      - ./mtn/splunk/private/mtn-demo.tgz:/run/splunk-app/mtn-demo.tgz:ro
+    networks:
+      # Make the UI bridge primary so Docker Desktop registers its loopback forwarding.
+      # API and seed join only the separate internal network.
+      splunk-web:
+        priority: 1000
+      splunk:
+        priority: 0
+    mem_limit: 3g
+    cpus: 2.0
+    pids_limit: 512
+    # Vendor image runs as ansible and uses setuid sudo during bootstrap.
+    # no-new-privileges would prevent installation; do not enable it without a new bootstrap design.
+
+  splunk-seed:
+    # Runs only when explicitly requested, on the internal network; no host HEC port.
+    image: python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df
+    profiles: [seed]
+    user: "65534:65534"
+    entrypoint: [python, /demo/seed.py]
+    command: [--ingest, --ca, /run/splunk-ca/ca.pem]
+    environment:
+      MTN_SPLUNK_HEC_TOKEN: ${MTN_SPLUNK_HEC_TOKEN:-}
+    volumes:
+      - ./mtn/demo/splunk:/demo:ro
+      - ./mtn/splunk/private/tls/ca.pem:/run/splunk-ca/ca.pem:ro
+    networks: [splunk]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+
+networks:
+  splunk:
+    internal: true
+  splunk-web: {}
+volumes:
+  splunk-etc:
+  splunk-var:

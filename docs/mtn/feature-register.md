@@ -111,3 +111,39 @@ Upload a spreadsheet, get a summary whose numbers come only from office-mcp (`in
 - Skill catalogue entries reached the model cut to 158 chars in one run (limit appears to shrink
   as the prompt grows); the descriptions still start with the trigger words.
 - Nemotron once spent about 3 minutes reasoning with no output (stopped and regenerated).
+
+
+## Splunk Operations Assistant (2026-11-10)
+
+- **What:** optional isolated local Splunk demo, official Splunkbase MCP app 7931, Groq
+  `openai/gpt-oss-120b`, `incident-report-rca` skill and existing Office incident-report template.
+- **Where:** `mtn/deploy/compose.splunk*.yml`, `mtn/splunk/`, `mtn/demo/splunk/`,
+  `mtn/config/librechat.yaml`, `mtn/skills/mtn-skills/incident-report-rca/SKILL.md`.
+- **Passed:** approved 10.4.5 image manifest/digest and amd64 architecture; Compose parse and
+  distinct project identities; LibreChat source/branding/Office image builds and YAML schema validation in separate images;
+  deterministic incident fixture; CA trust/hostname rejection tests; offline real Office MCP
+  Word generation, LibreOffice render, matching REST download and second-owner 404.
+- **Blocked:** operator app archive, licence acceptance/trial initialization, credentials,
+  exact installed tools and server controls, live Splunk security and browser scenarios,
+  browser Word attachment/reload, actual trial dates and representative memory with Splunk.
+- **Checks unavailable:** Lighthouse cannot build without Node dependencies; static-checks
+  cannot resolve absent `origin/dev`. These are not green checks.
+- **Limits:** 100-row hard cap remains unverified; server default is not a maximum.
+  Saved-search execution remains off; phase 2 requires an approved named allowlist.
+  MSISDN masking is **pending**, with broader guardrails scope unchanged.
+- Full setup, security targets and acceptance matrix: [Splunk integration](splunk-integration.md).
+  Actual evidence, offline screenshot and operator actions: [handover](splunk-handover.md).
+
+
+### Splunk resume checkpoint (2026-11-11)
+
+Official app 2.1.0 supplied and archive metadata/hash inspected; 10.4 compatibility confirmed on
+Splunkbase. Initial operator values and fresh local application secrets are prepared. The app's
+verified configuration schema supports max rows 100, timeout 60, token life 30 days and trusted CA;
+these are supplied as local configuration without changing vendor code. Five preparation tests
+pass. Isolated container created, with first launch/trial initialization awaiting the operator.
+Runtime security, token issuance, ingestion and browser acceptance remain pending.
+
+### Native HTML artifacts — isolated Operations assistant (2026-11-12)
+
+Enabled native artifact mode for Operations, matching the existing document assistants. Added self-contained HTML/SVG/diagram guidance with evidence provenance preserved; increased max_tokens from 2048 to 4096, retaining the 24000 context budget. Full configSchema validation passes in the actual demo image. No core renderer, iframe sandbox, Office attachment validation or TLS controls changed. Docker recovered and the isolated API restart completed; original services were not restarted. Browser preview, interaction and download checks are recorded in the Splunk handover. Lighthouse was attempted but stopped at missing local rimraf/node_modules.

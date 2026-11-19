@@ -1,0 +1,21 @@
+/* Run in a separately named LibreChat image container; no credentials or network needed. */
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const yaml = require('/app/node_modules/js-yaml');
+const { configSchema } = require('/app/node_modules/librechat-data-provider');
+const config = yaml.load(fs.readFileSync('/checks/librechat.yaml', 'utf8'));
+const parsed = configSchema.parse(config);
+const assistant = parsed.modelSpecs.list.find((spec) => spec.name === 'mtn-operations-assistant');
+assert.equal(assistant.preset.endpoint, 'nvidia');
+assert.equal(assistant.preset.model, 'nvidia/nemotron-3.5-lightning-30b-a3b');
+assert.equal(assistant.artifacts, 'default');
+assert.equal(assistant.preset.maxContextTokens, 24000);
+assert.equal(assistant.preset.max_tokens, 4096);
+assert.deepEqual(assistant.mcpServers, ['mtn-splunk', 'mtn-office']);
+assert.deepEqual(assistant.skills, ['incident-report-rca']);
+assert.equal(parsed.mcpServers['mtn-splunk'].type, 'streamable-http');
+assert.equal(parsed.mcpServers['mtn-splunk'].url, 'https://splunk:8089/services/mcp');
+assert.equal(parsed.mcpServers['mtn-splunk'].timeout, 60000);
+assert.equal(parsed.mcpServers['mtn-splunk'].apiKey.key, '${MTN_SPLUNK_MCP_TOKEN}');
+assert.deepEqual(parsed.mcpSettings.allowedAddresses, ['office-mcp:8000', 'splunk:8089']);
+console.log('PASS: full LibreChat schema, Operations assistant model/tools/skill, HTTPS MCP and narrow address allowlist');
