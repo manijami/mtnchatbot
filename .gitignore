@@ -84,6 +84,7 @@ librechat.yml
 my.secrets
 !**/.env.example
 !**/.env.test.example
+!.env.mtn.example
 cache.json
 api/data/
 owner.yml
@@ -199,3 +200,10 @@ scripts/activity-labels/results/
 
 # MTN: licensed brand assets (MTN Brighter Sans fonts, official logos) — never commit
 mtn/branding/private/
+
+# Splunk: operator-downloaded licensed app archives — never commit
+/mtn/splunk/private/
+
+# Splunk Python bytecode
+/mtn/demo/splunk/__pycache__/
+/mtn/splunk/__pycache__/

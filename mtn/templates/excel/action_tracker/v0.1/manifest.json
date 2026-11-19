@@ -1,0 +1,28 @@
+{
+  "kind": "excel",
+  "name": "action_tracker",
+  "version": "v0.1",
+  "file": "template.xlsx",
+  "sha256": "c4c1e59721dda00e28628fdaa708d4d3be022800abd55b91e484764e298a030a",
+  "font": {
+    "primary": "MTN Brighter Sans",
+    "fallback": "Arial",
+    "embedded": false
+  },
+  "colours": {
+    "yellow": "FFCB05",
+    "black": "000000",
+    "ink": "1F1F1F",
+    "tint": "FFF5CC"
+  },
+  "classification": "MTN Internal",
+  "named_styles": ["MTN Title", "MTN Subtitle", "MTN Header", "MTN Cell", "MTN Total"],
+  "limits": {
+    "max_sheets": 6,
+    "max_rows": 2000,
+    "max_columns": 30
+  },
+  "title": "Action tracker",
+  "description": "List of actions with owner, due date, status and priority; filters and a status summary chart.",
+  "suggested_columns": ["ID", "Action", "Owner", "Due date", "Status", "Priority", "Notes"]
+}

@@ -1,0 +1,37 @@
+{
+  "kind": "word",
+  "name": "meeting_minutes",
+  "version": "v0.1",
+  "file": "template.docx",
+  "sha256": "b98c94ef8a2940ac6a6482648a59e78068494a37c27f06ece75adfdb61d5e64e",
+  "page": {
+    "size": "A4",
+    "margins_cm": {
+      "top": 2.6,
+      "bottom": 2.2,
+      "left": 2.2,
+      "right": 2.2
+    }
+  },
+  "font": {
+    "primary": "MTN Brighter Sans",
+    "fallback": "Arial",
+    "embedded": false
+  },
+  "colours": {
+    "yellow": "FFCB05",
+    "black": "000000",
+    "ink": "1F1F1F",
+    "tint": "FFF5CC"
+  },
+  "classification": "MTN Internal",
+  "logo": {
+    "placement": "header-right",
+    "height_cm": 1.4
+  },
+  "title": "Meeting minutes",
+  "kicker": "MEETING MINUTES",
+  "description": "Minutes of a meeting: attendees, agenda, discussion, decisions, actions.",
+  "cover_fields": ["Date", "Time", "Location", "Chair", "Attendees", "Apologies"],
+  "suggested_sections": ["Agenda", "Discussion", "Decisions", "Action items", "Next meeting"]
+}

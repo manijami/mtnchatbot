@@ -101,6 +101,7 @@ const mockGetAllowedDomains = jest.fn().mockReturnValue(null);
 const mockGetAllowedAddresses = jest.fn().mockReturnValue(null);
 const mockRegistryInstance = {
   getServerConfig: jest.fn(),
+  getYamlServerOptions: jest.fn(),
   isAppServerConfig: jest.fn(),
   isHiddenFromPrincipal: jest.fn(),
   getUserHiddenServerNames: jest.fn(async (): Promise<ReadonlySet<string>> => new Set()),
@@ -922,6 +923,86 @@ describe('MCPManager', () => {
 
       expect(updateActivity).not.toHaveBeenCalled();
       expect(manager.getConnectionStats().activityEntries).toBe(0);
+    });
+  });
+
+  describe('callTool - MCP file outputs', () => {
+    const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    const mockUser = { id: 'file-output-user' } as IUser;
+    const mockFlowManager = {} as Parameters<MCPManager['callTool']>[0]['flowManager'];
+    const docx = Buffer.concat([
+      Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+      Buffer.alloc(26),
+      Buffer.from('[Content_Types].xml', 'latin1'),
+    ]).toString('base64');
+    const base = { type: 'sse' as const, url: 'https://office.example.com/mcp' };
+    const enabled = { ...base, fileOutputs: { enabled: true } };
+
+    function connectionReturningFile(): MCPConnection {
+      return {
+        capabilityProfile: STANDARD_MCP_CAPABILITY_PROFILE,
+        isConnected: jest.fn().mockResolvedValue(true),
+        setRequestHeaders: jest.fn(),
+        timeout: 30000,
+        client: {
+          request: jest.fn().mockResolvedValue({
+            content: [
+              { type: 'text', text: 'Created.' },
+              {
+                type: 'resource',
+                resource: { uri: 'file:///out/plan.docx', mimeType: DOCX, blob: docx },
+              },
+            ],
+            isError: false,
+          }),
+        },
+      } as unknown as MCPConnection;
+    }
+
+    async function call(serverConfig: t.ParsedServerConfig, yamlOptions?: unknown) {
+      const manager = new MCPManager();
+      mockRegistryInstance.getYamlServerOptions.mockReturnValue(yamlOptions);
+      jest.spyOn(manager, 'getConnection').mockResolvedValue(connectionReturningFile());
+      return manager.callTool({
+        user: mockUser,
+        serverName,
+        serverConfig,
+        toolName: 'create_word_document',
+        provider: 'openai',
+        flowManager: mockFlowManager,
+      });
+    }
+
+    beforeEach(() => {
+      (graphUtils.preProcessGraphTokens as jest.Mock).mockImplementation(async (o) => o);
+    });
+
+    it('attaches files for a librechat.yaml server that opts in, without bytes in the text', async () => {
+      const [text, artifacts] = await call({ ...enabled, source: 'yaml' }, enabled);
+      expect(artifacts?.mcp_file_outputs?.files).toEqual([
+        expect.objectContaining({ filename: 'plan.docx', mimeType: DOCX, data: docx }),
+      ]);
+      expect(text).toContain('Generated file "plan.docx"');
+      expect(text).not.toContain(docx);
+    });
+
+    it('never attaches files for a user-added server, even when it sets fileOutputs', async () => {
+      const [text, artifacts] = await call({ ...enabled, source: 'user', dbId: 'db1' }, enabled);
+      expect(artifacts?.mcp_file_outputs).toBeUndefined();
+      expect(text).toContain('binary data (omitted');
+    });
+
+    it('never attaches files for Config-tier or plugin servers', async () => {
+      const [, configArtifacts] = await call({ ...enabled, source: 'config' }, undefined);
+      expect(configArtifacts?.mcp_file_outputs).toBeUndefined();
+      const plugin = { ...enabled, source: 'plugin' as const };
+      const [, pluginArtifacts] = await call(plugin, plugin);
+      expect(pluginArtifacts?.mcp_file_outputs).toBeUndefined();
+    });
+
+    it('ignores an override that adds fileOutputs to a yaml server without it', async () => {
+      const [, artifacts] = await call({ ...enabled, source: 'yaml' }, base);
+      expect(artifacts?.mcp_file_outputs).toBeUndefined();
     });
   });
 

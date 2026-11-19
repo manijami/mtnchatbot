@@ -1,8 +1,16 @@
-# Only what the Dockerfile reads; keep the 8000px source JPEGs and vendor files out of the context.
-private/logo/
+# Only what the Dockerfile reads (see ASSETS.md). Large source artwork and design references stay
+# out of the build context.
+private/logo/*
+!private/logo/logo.svg
+!private/logo/logo.png
+!private/logo/logo-on-dark.svg
+!private/logo/logo-on-dark.png
+private/reference/
+private/brand/
 private/fonts/*.eot
 private/fonts/mtnfont.css
 fonts/PLACEHOLDER.txt
 Dockerfile
 .dockerignore
-.DS_Store
+**/.DS_Store
+**/.claude-flow

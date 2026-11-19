@@ -28,8 +28,11 @@ import useSidebarState from '~/hooks/Nav/useSidebarState';
 import SidePanelNav from '~/components/SidePanel/Nav';
 import { createResizeMeasure } from './resize';
 import { useLocalize } from '~/hooks';
+import { MtnSidebar } from '~/mtn';
 import Sidebar from './Sidebar';
 import { cn } from '~/utils';
+
+const noop = () => {};
 
 function getInitialWidth(): number {
   const saved = localStorage.getItem('side:width');
@@ -54,8 +57,11 @@ function SidebarChatProvider({ children }: { children: ReactNode }) {
 function UnifiedSidebar({
   isSliding = false,
   switchToHistory,
+  mtnLayout = false,
 }: {
   isSliding?: boolean;
+  /** MTN fork: render the MTN sidebar (`interface.mtnLayout`). Default: upstream rail. */
+  mtnLayout?: boolean;
   /** The user's "new chat returns to the chat list" preference. App-global
    *  shell state the sidebar only reads, so the host passes it in. */
   switchToHistory: boolean;
@@ -221,7 +227,7 @@ function UnifiedSidebar({
     return () => document.removeEventListener('keydown', handler);
   }, [isSmallScreen, expanded, handleCollapse]);
 
-  const sidebarContent = isSmallScreen ? (
+  const upstreamContent = isSmallScreen ? (
     <div
       id={MOBILE_DRAWER_ID}
       className={cn(
@@ -319,6 +325,24 @@ function UnifiedSidebar({
         </aside>
       </ActivePanelProvider>
     </SidebarChatProvider>
+  );
+
+  /** MTN fork: the MTN sidebar replaces the icon rail when `interface.mtnLayout` is on. */
+  const sidebarContent = mtnLayout ? (
+    <SidebarChatProvider>
+      <ActivePanelProvider>
+        <MtnSidebar
+          links={links}
+          expanded={isSmallScreen ? expanded : panelExpanded}
+          isSliding={isSliding}
+          isSmallScreen={isSmallScreen}
+          switchToHistory={switchToHistory}
+          onNavigate={isSmallScreen ? handleCollapse : noop}
+        />
+      </ActivePanelProvider>
+    </SidebarChatProvider>
+  ) : (
+    upstreamContent
   );
 
   const closeFiles = useCallback(

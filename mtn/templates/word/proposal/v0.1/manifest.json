@@ -1,0 +1,45 @@
+{
+  "kind": "word",
+  "name": "proposal",
+  "version": "v0.1",
+  "file": "template.docx",
+  "sha256": "186b32a8c7d1616b4df2ec1092e7d5ed4657bb0a87796a9a306a342050421623",
+  "page": {
+    "size": "A4",
+    "margins_cm": {
+      "top": 2.6,
+      "bottom": 2.2,
+      "left": 2.2,
+      "right": 2.2
+    }
+  },
+  "font": {
+    "primary": "MTN Brighter Sans",
+    "fallback": "Arial",
+    "embedded": false
+  },
+  "colours": {
+    "yellow": "FFCB05",
+    "black": "000000",
+    "ink": "1F1F1F",
+    "tint": "FFF5CC"
+  },
+  "classification": "MTN Internal",
+  "logo": {
+    "placement": "header-right",
+    "height_cm": 1.4
+  },
+  "title": "Proposal",
+  "kicker": "PROPOSAL",
+  "description": "Business or project proposal: problem, proposed solution, plan, costs, risks.",
+  "cover_fields": ["Prepared for", "Prepared by", "Date", "Version"],
+  "suggested_sections": [
+    "Executive summary",
+    "Background",
+    "Proposed solution",
+    "Implementation plan",
+    "Costs and benefits",
+    "Risks and mitigations",
+    "Next steps"
+  ]
+}

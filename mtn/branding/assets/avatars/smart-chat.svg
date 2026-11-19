@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="MTN Smart Chat">
+  <!-- MTN-style fallback avatar (original drawing, not an MTN asset): yellow disc, black outline chat bubble with a spark. -->
+  <circle cx="32" cy="32" r="31" fill="#FFCB05" stroke="#000" stroke-width="2"/>
+  <path d="M18 22a5 5 0 0 1 5-5h18a5 5 0 0 1 5 5v13a5 5 0 0 1-5 5H29l-7 6v-6h1a5 5 0 0 1-5-5z" fill="none" stroke="#000" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M32 21.5l1.8 4.7 4.7 1.8-4.7 1.8-1.8 4.7-1.8-4.7-4.7-1.8 4.7-1.8z" fill="#000"/>
+</svg>

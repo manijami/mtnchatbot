@@ -1,0 +1,80 @@
+# Isolated companion stack, intentionally avoids the root file's fixed container names.
+# Launch only with --project-directory "$PWD" -p mtn-splunk-codex and explicit -f files.
+services:
+  api:
+    image: mtn-splunk-librechat:local
+    build:
+      context: ./mtn/branding
+      args:
+        BASE_IMAGE: mtn-splunk-librechat-src:local
+    pull_policy: never
+    restart: "no"
+    environment:
+      # Explicit variables: do not pass the Splunk admin password or HEC token to LibreChat.
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      MTN_OFFICE_MCP_TOKEN: ${MTN_OFFICE_MCP_TOKEN:?set a new local Office token}
+      MTN_SPLUNK_MCP_TOKEN: ${MTN_SPLUNK_MCP_TOKEN:?restore the existing scoped MCP token before starting Operations}
+      CREDS_KEY: ${CREDS_KEY:-}
+      CREDS_IV: ${CREDS_IV:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-}
+      APP_TITLE: MTN Employee AI
+      DOMAIN_CLIENT: http://localhost:3081
+      DOMAIN_SERVER: http://localhost:3081
+      ALLOW_EMAIL_LOGIN: "true"
+      ALLOW_REGISTRATION: "true"
+      HOST: 0.0.0.0
+      PORT: 3080
+      MONGO_URI: mongodb://mongodb:27017/LibreChat
+      SEARCH: "false"
+      SCHEDULES_SINGLE_PROCESS: "true"
+      DEPLOYMENT_SKILLS_DIR: /app/skill
+      # Router services are intentionally absent; Operations uses Groq directly.
+    ports: ["127.0.0.1:3081:3080"]
+    volumes:
+      - ./mtn/config/librechat.yaml:/app/librechat.yaml:ro
+      - ./mtn/skills/mtn-skills:/app/skill:ro
+      - demo-uploads:/app/uploads
+      - demo-images:/app/client/public/images
+      - demo-logs:/app/logs
+      - demo-data:/app/data
+    depends_on: [mongodb, office-mcp]
+    networks: [default, office]
+  mongodb:
+    image: mongo:8.0.20
+    command: [mongod, --noauth]
+    volumes: [demo-mongo:/data/db]
+    networks: [default]
+  office-mcp:
+    image: mtn-splunk-office-mcp:local
+    build:
+      context: ./mtn/services/office-mcp
+      target: runtime
+    pull_policy: never
+    environment:
+      MTN_OFFICE_MCP_TOKEN: ${MTN_OFFICE_MCP_TOKEN:?set a new local Office token}
+      OFFICE_MCP_UPLOADS_DIR: /uploads
+      MPLCONFIGDIR: /tmp/matplotlib
+    volumes:
+      - demo-office:/data
+      - ./mtn/templates:/app/templates:ro
+      - demo-uploads:/uploads:ro
+    networks: [office]
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 256
+    read_only: true
+    tmpfs: [/tmp:size=256m, /home/office:size=64m]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+networks:
+  office:
+    internal: true
+volumes:
+  demo-mongo:
+  demo-uploads:
+  demo-images:
+  demo-logs:
+  demo-data:
+  demo-office:

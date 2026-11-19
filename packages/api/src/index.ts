@@ -25,6 +25,7 @@ export * from './mcp/registry/MCPServersRegistry';
 export * from './mcp/registry/policy';
 export { reportStoredMCPTombstones } from './mcp/registry/hidden';
 export * from './mcp/MCPManager';
+export * from './mcp/fileOutputs';
 export * from './mcp/connection';
 export * from './mcp/toolsChanged';
 export * from './mcp/defer';
@@ -108,6 +109,8 @@ export * from './plugins';
 export * from './endpoints';
 /* Files */
 export * from './files';
+/* Not in the files barrel: storage/s3 imports that barrel and mcpOutputs imports storage. */
+export * from './files/mcpOutputs';
 /* Images */
 export * from './images';
 /* Storage */

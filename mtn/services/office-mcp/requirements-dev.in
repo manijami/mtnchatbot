@@ -1,0 +1,5 @@
+# Test-only dependencies, installed in the `test` image stage only.
+#   uv pip compile requirements-dev.in --generate-hashes --python-version 3.12 \
+#     --python-platform x86_64-manylinux_2_28 -o requirements-dev.lock
+-c requirements.lock
+pytest==8.4.2

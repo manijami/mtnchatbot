@@ -98,6 +98,8 @@ export async function loadDefaultInterface({
     colorModeFromUrl: interfaceConfig?.colorModeFromUrl ?? defaults.colorModeFromUrl,
     buildInfo: interfaceConfig?.buildInfo ?? defaults.buildInfo,
     mascot: interfaceConfig?.mascot ?? defaults.mascot,
+    /** MTN fork: off unless the deployment opts in. */
+    mtnLayout: interfaceConfig?.mtnLayout ?? false,
     contextUsage: interfaceConfig?.contextUsage ?? defaults.contextUsage,
     artifactUndocking: interfaceConfig?.artifactUndocking ?? defaults.artifactUndocking,
     analyticsConsent: interfaceConfig?.analyticsConsent,

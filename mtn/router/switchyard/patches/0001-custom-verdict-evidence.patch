@@ -1,0 +1,208 @@
+diff --git a/crates/libsy/src/algorithms/llm_class.rs b/crates/libsy/src/algorithms/llm_class.rs
+index 12d9241..657269e 100644
+--- a/crates/libsy/src/algorithms/llm_class.rs
++++ b/crates/libsy/src/algorithms/llm_class.rs
+@@ -275,6 +275,28 @@ impl JudgePolicy for TaskClassifierPolicy {
+ }
+ 
+ /// Maps valid verdicts to scores, invalid verdicts to a reason, and leaves absent verdicts alone.
++/// Largest serialized custom verdict recorded as routing evidence.
++const MAX_CUSTOM_VERDICT_EVIDENCE_BYTES: usize = 1024;
++
++/// Records the validated custom-mode verdict as routing evidence, so a host can explain the
++/// choice (for example a short `reason` field defined in the route's own response schema).
++/// Oversized verdicts are summarized instead of copied. Judge failures keep the shared
++/// fail-open evidence.
++fn custom_evidence(_policy: &CustomPolicyRuntime, verdict: Option<&Value>) -> Option<Value> {
++    let verdict = verdict?;
++    let size = serde_json::to_string(verdict).map_or(usize::MAX, |text| text.len());
++    if size > MAX_CUSTOM_VERDICT_EVIDENCE_BYTES {
++        return Some(serde_json::json!({
++            "source": "llm-classifier",
++            "verdict_omitted": "too_large",
++        }));
++    }
++    Some(serde_json::json!({
++        "source": "llm-classifier",
++        "verdict": verdict,
++    }))
++}
++
+ fn capability_evidence(
+     policy: &TaskClassifierPolicy,
+     verdict: Option<&TaskClassifierVerdict>,
+@@ -669,15 +691,18 @@ impl LlmTaskClassifier {
+                 CustomPolicyRuntime::TargetSelector(TargetSelectorPolicy::new(selector)?)
+             }
+         };
+-        let classifier: Arc<dyn Classifier<State>> = Arc::new(JudgeClassifier::new(
+-            StructuredJudge::new(
+-                TaskInput { recent_turn_window },
+-                contract,
+-                JsonSchemaDecoder::new(),
+-                JudgeRuntimeConfig::new(max_output_tokens)?,
+-            ),
+-            policy,
+-        ));
++        let classifier: Arc<dyn Classifier<State>> = Arc::new(
++            JudgeClassifier::new(
++                StructuredJudge::new(
++                    TaskInput { recent_turn_window },
++                    contract,
++                    JsonSchemaDecoder::new(),
++                    JudgeRuntimeConfig::new(max_output_tokens)?,
++                ),
++                policy,
++            )
++            .with_evidence(custom_evidence),
++        );
+ 
+         Self::from_classifier(
+             classifier,
+@@ -1811,3 +1836,31 @@ mod tests {
+         Ok(())
+     }
+ }
++
++#[cfg(test)]
++mod custom_evidence_tests {
++    use super::*;
++
++    fn policy() -> CustomPolicyRuntime {
++        CustomPolicyRuntime::TargetSelector(
++            TargetSelectorPolicy::new("/decision/target".to_string()).expect("selector"),
++        )
++    }
++
++    #[test]
++    fn custom_evidence_records_the_validated_verdict() {
++        let verdict = serde_json::json!({"decision": {"target": "fast", "reason": "simple greeting"}});
++        let evidence = custom_evidence(&policy(), Some(&verdict)).expect("evidence");
++        assert_eq!(evidence["source"], "llm-classifier");
++        assert_eq!(evidence["verdict"], verdict);
++    }
++
++    #[test]
++    fn custom_evidence_summarizes_oversized_verdicts_and_skips_missing_ones() {
++        let verdict = serde_json::json!({"decision": {"target": "fast", "reason": "x".repeat(2000)}});
++        let evidence = custom_evidence(&policy(), Some(&verdict)).expect("evidence");
++        assert_eq!(evidence["verdict_omitted"], "too_large");
++        assert!(evidence.get("verdict").is_none());
++        assert!(custom_evidence(&policy(), None).is_none());
++    }
++}
+diff --git a/crates/switchyard-server/src/lib.rs b/crates/switchyard-server/src/lib.rs
+index 58ebc0d..fccb36a 100644
+--- a/crates/switchyard-server/src/lib.rs
++++ b/crates/switchyard-server/src/lib.rs
+@@ -65,6 +65,8 @@ pub const DEFAULT_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(30);
+ pub const DEFAULT_MAX_REQUEST_BODY_BYTES: usize = 32 * 1024 * 1024;
+ 
+ const HEADER_SELECTED_MODEL: &str = "x-model-router-selected-model";
++/// Routing evidence of the outcome (for example a custom judge's verdict), as ASCII-only JSON.
++const HEADER_ROUTE_EVIDENCE: &str = "x-switchyard-route-evidence";
+ const FORWARDED_UPSTREAM_HEADERS: &[&str] = &[
+     "baggage",
+     "openai-processing-ms",
+@@ -1052,10 +1054,21 @@ async fn handle_llm_request(
+     });
+     // Only the Codex namespace mapping is needed downstream, not the whole request.
+     let request_extensions = request.llm_request.extensions.clone();
+-    let observer = stats_observer(
++    let stats = stats_observer(
+         state.stats.clone(),
+         state.routing_log.clone().zip(routing_log_context.clone()),
+     );
++    // Capture the outcome's evidence so it can be returned in a response header.
++    let evidence_slot: Arc<Mutex<Option<Value>>> = Arc::new(Mutex::new(None));
++    let observer: RunObserver = {
++        let slot = Arc::clone(&evidence_slot);
++        Arc::new(move |observation| {
++            if let RunObservation::Outcome(metadata) = &observation {
++                *slot.lock() = metadata.evidence.clone();
++            }
++            stats(observation);
++        })
++    };
+ 
+     let output = match route.execute(request, Some(observer)).await {
+         Ok(output) => output,
+@@ -1120,6 +1133,9 @@ async fn handle_llm_request(
+     if let Some(served_model) = served_model.as_ref() {
+         attach_routing_headers(&mut response, served_model.as_str());
+     }
++    if let Some(evidence) = evidence_slot.lock().take() {
++        attach_evidence_header(&mut response, &evidence);
++    }
+     response
+ }
+ 
+@@ -1241,6 +1257,34 @@ fn attach_routing_headers(response: &mut Response, served_model: &str) {
+     insert_routing_header(response, HEADER_SELECTED_MODEL, served_model);
+ }
+ 
++/// Adds the outcome evidence as compact JSON with non-ASCII characters escaped (`\uXXXX`), so
++/// the value is header-safe and still valid JSON. Evidence that would exceed the routing-header
++/// limit is left out rather than truncated into invalid JSON.
++fn attach_evidence_header(response: &mut Response, evidence: &Value) {
++    let Ok(json) = serde_json::to_string(evidence) else {
++        return;
++    };
++    let mut ascii = String::with_capacity(json.len());
++    for ch in json.chars() {
++        if ch.is_ascii() && !ch.is_ascii_control() {
++            ascii.push(ch);
++        } else {
++            let mut units = [0u16; 2];
++            for unit in ch.encode_utf16(&mut units) {
++                ascii.push_str(&format!("\\u{unit:04x}"));
++            }
++        }
++    }
++    if ascii.len() > MAX_ROUTING_HEADER_VALUE_LEN {
++        return;
++    }
++    if let Ok(value) = HeaderValue::from_str(&ascii) {
++        response
++            .headers_mut()
++            .insert(HeaderName::from_static(HEADER_ROUTE_EVIDENCE), value);
++    }
++}
++
+ fn insert_routing_header(response: &mut Response, name: &'static str, value: &str) {
+     let Some(value) = sanitize_routing_header_value(value) else {
+         return;
+@@ -1988,3 +2032,33 @@ mod tests {
+         );
+     }
+ }
++
++#[cfg(test)]
++mod route_evidence_header_tests {
++    use super::*;
++
++    fn header(evidence: &Value) -> Option<String> {
++        let mut response = Response::new(Body::empty());
++        attach_evidence_header(&mut response, evidence);
++        response
++            .headers()
++            .get(HEADER_ROUTE_EVIDENCE)
++            .map(|value| value.to_str().expect("ascii").to_string())
++    }
++
++    #[test]
++    fn evidence_header_is_ascii_json_that_round_trips() {
++        let evidence = json!({"source": "llm-classifier",
++            "verdict": {"decision": {"target": "balanced", "reason": "café policy — how-to"}}});
++        let value = header(&evidence).expect("header");
++        assert!(value.is_ascii());
++        let parsed: Value = serde_json::from_str(&value).expect("json");
++        assert_eq!(parsed, evidence);
++    }
++
++    #[test]
++    fn oversized_evidence_is_left_out() {
++        let evidence = json!({"verdict": {"reason": "x".repeat(MAX_ROUTING_HEADER_VALUE_LEN)}});
++        assert!(header(&evidence).is_none());
++    }
++}

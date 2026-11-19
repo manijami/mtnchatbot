@@ -12,6 +12,31 @@ export const MAX_MCP_ICON_PATH_LENGTH = 256 * 1024;
 /** Keep persistence admission waits below the shared lease's 15-minute lifetime. */
 export const MAX_MCP_OAUTH_PERSISTENCE_WAIT_MS = 14 * 60_000;
 
+/** Hard ceiling for a single MCP file output, whatever a server's `fileOutputs.maxBytes` says. */
+export const MAX_MCP_FILE_OUTPUT_BYTES = 50 * 1024 * 1024;
+
+/**
+ * Opt-in delivery of files embedded in MCP tool results (`resource` content with a base64
+ * `blob`) as user-owned chat attachments. Off unless `enabled: true`.
+ *
+ * SECURITY: honoured only for servers an operator declared in librechat.yaml. Servers added
+ * by users, Config-tier overrides and Agent Plugins servers never deliver files, even when the
+ * field is present; the runtime gate reads the policy from the librechat.yaml snapshot, and the
+ * user-input schema strips the field.
+ */
+export const MCPFileOutputsSchema = z.object({
+  enabled: z.boolean().default(false),
+  /** Allowed MIME types. Defaults to Word, PowerPoint, Excel and PDF. Each type is also checked
+   *  against its file signature before it is saved. */
+  mimeTypes: z.array(z.string().min(1)).optional(),
+  /** Per-file byte limit (default 25 MiB, capped at {@link MAX_MCP_FILE_OUTPUT_BYTES}). */
+  maxBytes: z.number().int().positive().max(MAX_MCP_FILE_OUTPUT_BYTES).optional(),
+  /** Files accepted from one tool result (default 5). */
+  maxFiles: z.number().int().positive().max(20).optional(),
+});
+
+export type TMCPFileOutputs = z.infer<typeof MCPFileOutputsSchema>;
+
 const validateOAuthClientCredentials = (
   oauth: {
     client_id?: string;
@@ -368,6 +393,8 @@ const BaseOptionsSchema = z.object({
       }),
     )
     .optional(),
+  /** Opt-in file attachments from tool results; librechat.yaml servers only (see schema). */
+  fileOutputs: MCPFileOutputsSchema.optional(),
 });
 
 const ProxyUrlSchema = z
@@ -588,6 +615,7 @@ const omitServerManagedFields = <T extends z.ZodObject<z.ZodRawShape>>(schema: T
     oauthToolCatalog: true,
     customUserVars: true,
     oauth_headers: true,
+    fileOutputs: true,
   });
 
 const userManagedServerFields = <T extends z.ZodObject<z.ZodRawShape>>(schema: T) =>

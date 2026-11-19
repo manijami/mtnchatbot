@@ -1,0 +1,45 @@
+{
+  "kind": "word",
+  "name": "incident_report",
+  "version": "v0.1",
+  "file": "template.docx",
+  "sha256": "37c927b8199a8be155dc37a03535fda72485b5cef985a7fdf5e9285d4b21656a",
+  "page": {
+    "size": "A4",
+    "margins_cm": {
+      "top": 2.6,
+      "bottom": 2.2,
+      "left": 2.2,
+      "right": 2.2
+    }
+  },
+  "font": {
+    "primary": "MTN Brighter Sans",
+    "fallback": "Arial",
+    "embedded": false
+  },
+  "colours": {
+    "yellow": "FFCB05",
+    "black": "000000",
+    "ink": "1F1F1F",
+    "tint": "FFF5CC"
+  },
+  "classification": "MTN Internal",
+  "logo": {
+    "placement": "header-right",
+    "height_cm": 1.4
+  },
+  "title": "Incident report",
+  "kicker": "INCIDENT REPORT",
+  "description": "IT or operational incident report or process: summary, timeline, impact, root cause, resolution, lessons learned.",
+  "cover_fields": ["Incident ID", "Severity", "Status", "Date", "Owner"],
+  "suggested_sections": [
+    "Summary",
+    "Timeline",
+    "Impact",
+    "Root cause",
+    "Resolution",
+    "Lessons learned",
+    "Follow-up actions"
+  ]
+}

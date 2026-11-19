@@ -52,6 +52,7 @@ import ChatSettingsProvider from './ChatSettings';
 import { useHealthCheck } from '~/data-provider';
 import Settings from '~/components/Nav/Settings';
 import { Banner } from '~/components/Banners';
+import { MtnTopBar } from '~/mtn';
 import store from '~/store';
 
 /** Isolates the unseen-reply subscription so its updates re-render only this node, not `Root`. */
@@ -142,6 +143,8 @@ function RootLayout() {
   const fileMap = useFileMap({ isAuthenticated });
 
   const { data: config, isSuccess: isConfigReady, error: configError } = useGetStartupConfig();
+  /** MTN fork: MTN top bar and sidebar (interface.mtnLayout, default off). */
+  const mtnLayout = config?.interface?.mtnLayout === true;
   const { data: termsData } = useUserTermsQuery({
     enabled: isAuthenticated && config?.interface?.termsOfService?.modalAcceptance === true,
   });
@@ -186,7 +189,16 @@ function RootLayout() {
             <AgentsMapContext.Provider value={agentsMap}>
               <PromptGroupsProvider>
                 <Banner onHeightChange={setBannerHeight} />
-                <div className="flex" style={{ height: `calc(100dvh - ${bannerHeight}px)` }}>
+                {/* MTN fork: the MTN top bar (interface.mtnLayout); --mtn-topbar-h is 0 without it. */}
+                {mtnLayout && <MtnTopBar />}
+                <div
+                  className="flex"
+                  style={{
+                    height: mtnLayout
+                      ? `calc(100dvh - ${bannerHeight}px - var(--mtn-topbar-h, 0px))`
+                      : `calc(100dvh - ${bannerHeight}px)`,
+                  }}
+                >
                   <div
                     className="relative z-0 flex h-full w-full overflow-hidden"
                     /** Drawer width also defines the uncovered dismiss strip. */
@@ -204,6 +216,7 @@ function RootLayout() {
                     <UnifiedSidebar
                       isSliding={isSliding}
                       switchToHistory={newChatSwitchToHistory}
+                      mtnLayout={mtnLayout}
                     />
                     <div
                       ref={paneRef}
